@@ -1,10 +1,10 @@
-name: 红利指数周报
+name: 红利指数日报
 
-# 触发方式：每周六 09:00 北京时间自动 + 支持手动触发
+# 触发方式：每周一至周五 20:00 北京时间自动(收盘后取数) + 支持手动触发
 on:
   schedule:
-    # GitHub Actions cron 用 UTC；北京时间周六 09:00 = UTC 周六 01:00
-    - cron: '0 1 * * 6'
+    # GitHub Actions cron 用 UTC；北京时间 20:00 = UTC 12:00；周一到周五 = 1-5 (0=周日)
+    - cron: '0 12 * * 1-5'
   workflow_dispatch:  # 仓库 Actions 页可手动点 "Run workflow" 触发
 
 # 自动提交需要写权限
