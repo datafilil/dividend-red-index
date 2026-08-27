@@ -330,14 +330,19 @@ if below:
         else:
             episodes.append(run); run = [it]; start_i = it[0]; prev_i = it[0]
     episodes.append(run)
-def max_dev(run):
-    return min(cl / ma[500][i] - 1 for (i, dt, cl) in run) * 100
+def deep_info(run):
+    """返回 (最深偏离%, 最深日, 最深日收盘, 最深日 MA500) ——
+    所有列对齐到最深日, 消除"最深偏离"与"末收盘/末MA500"不同日的口径矛盾。"""
+    items = [(cl / ma[500][i] - 1, dt, cl, ma[500][i]) for (i, dt, cl) in run]
+    dev, dt, cl, mav = min(items, key=lambda x: x[0])
+    return dev * 100, dt, cl, mav
 ep_stats = []
 for ep in episodes:
+    dev, dt, cl, mav = deep_info(ep)
     ep_stats.append({
         "start": ep[0][1], "end": ep[-1][1], "n": len(ep),
-        "max_dev": max_dev(ep),
-        "end_close": ep[-1][2], "end_ma": ma[500][ep[-1][0]],
+        "max_dev": dev,
+        "deep_date": dt, "deep_close": cl, "deep_ma": mav,
     })
 ep_stats.sort(key=lambda e: e["n"], reverse=True)
 
@@ -403,9 +408,10 @@ ep_rows = ""
 for e in ep_stats[:15]:
     ep_rows += (f"<tr><td>{e['start']}</td><td>{e['end']}</td><td>{e['n']}</td>"
                 f"<td class='neg'>{e['max_dev']:.2f}%</td>"
-                f"<td>{e['end_close']:.2f}</td><td>{e['end_ma']:.2f}</td></tr>")
+                f"<td>{e['deep_date']}</td>"
+                f"<td>{e['deep_close']:.2f}</td><td>{e['deep_ma']:.2f}</td></tr>")
 if not ep_rows:
-    ep_rows = "<tr><td colspan='6' style='text-align:center;color:#16a34a'>近五年无破位</td></tr>"
+    ep_rows = "<tr><td colspan='7' style='text-align:center;color:#16a34a'>近五年无破位</td></tr>"
 
 html = f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
@@ -493,7 +499,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
     <tr><td>MA500</td><td class="neg">{below_rate:.1f}%</td><td>覆盖完整近 5 年(前置500)</td></tr>
   </tbody></table>
   <p style="margin-top:10px"><b>破 MA500 明细（按持续天数降序，前 15 段）：</b></p>
-  <table><thead><tr><th>起始</th><th>结束</th><th>天数</th><th>最深偏离</th><th>末收盘</th><th>末 MA500</th></tr></thead>
+  <table><thead><tr><th>起始</th><th>结束</th><th>天数</th><th>最深偏离</th><th>最深日</th><th>最深日收盘</th><th>最深日 MA500</th></tr></thead>
   <tbody>{ep_rows}</tbody></table>
   <p class="refnote">提示：单日假破位噪音较大；若作提醒条件，建议"连续 ≥3 日破位 且 偏离 &gt;2%"再触发，可过滤短假破位。</p>
 </div></section>
