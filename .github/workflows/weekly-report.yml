@@ -52,6 +52,8 @@ jobs:
             echo "本轮无变更（官网未更新），跳过提交"
           else
             git commit -m "chore: 红利指数周报 $(date -u +%Y-%m-%d)"
+            # 拉取远程最新提交并 rebase(避免外部 PUT 推送与本地 commit 冲突导致 push 被拒)
+            git pull --rebase "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ${GITHUB_REF_NAME}
             git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${GITHUB_REF_NAME}
             echo "已提交并推送"
           fi
