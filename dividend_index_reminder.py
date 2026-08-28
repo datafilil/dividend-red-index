@@ -319,16 +319,18 @@ cut = last_date - datetime.timedelta(days=int(365.25*5))
 win = [(i, p_dates[i], p_close[i]) for i in range(len(p)) if p_dates[i] >= cut]
 below = [(i, dt, cl) for (i, dt, cl) in win if ma[500][i] is not None and cl < ma[500][i]]
 below_rate = len(below) / len(win) * 100 if win else 0
-# 连续破位段
+# 破位段：间隔 ≤ GAP_MAX 个非破位交易日的破位视为同一波行情, 合并为一段
+# (避免相邻的二次探底被切成独立段, 导致展示的"最深偏离"远低于真实行情极值)
+GAP_MAX = 5  # ≈ 1 周
 episodes = []
 if below:
-    start_i, prev_i = below[0][0], below[0][0]
     run = [below[0]]
     for it in below[1:]:
-        if it[0] == prev_i + 1:
-            run.append(it); prev_i = it[0]
+        gap = it[0] - run[-1][0] - 1  # 间隔的非破位交易日数
+        if gap <= GAP_MAX:
+            run.append(it)
         else:
-            episodes.append(run); run = [it]; start_i = it[0]; prev_i = it[0]
+            episodes.append(run); run = [it]
     episodes.append(run)
 def deep_info(run):
     """返回 (最深偏离%, 最深日, 最深日收盘, 最深日 MA500) ——
@@ -377,14 +379,15 @@ def pos(v, ma_v):
 diff_state = "跑赢基准" if cur_diff > 0 else "跑输基准"
 
 # ================= 图表 =================
-# 用近五年做横轴
-x0 = len(p) - len(win)
+# 图1 用近10年做横轴(覆盖更长周期, 看清长期均线趋势)
+cut10 = last_date - datetime.timedelta(days=int(365.25*10))
+x0 = next((i for i, d in enumerate(p_dates) if d >= cut10), 0)
 c1 = [{"name": f"{PRIMARY_NAME}收盘", "color": "#2563eb",
        "points": [(i, p_close[i]) for i in range(x0, len(p))], "width": 1.8}]
 for w in MAS:
     c1.append({"name": f"MA{w}", "color": ["#f59e0b","#10b981","#ef4444"][MAS.index(w)],
                "points": [(i, ma[w][i]) for i in range(x0, len(p)) if ma[w][i] is not None], "width": 1.5})
-svg1 = svg_line_chart(f"{PRIMARY_NAME} 收盘与长期均线 (近5年, MA250/350/500)", c1, y_precision=0,
+svg1 = svg_line_chart(f"{PRIMARY_NAME} 收盘与长期均线 (近10年, MA250/350/500)", c1, y_precision=0,
                       x_ticks=year_ticks(p_dates, x0, len(p) - 1))
 
 c2 = [{"name": "40日收益差值(%)", "color": "#7c3aed",
@@ -492,7 +495,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 <div class="refbox">
   <div class="reftitle">统计口径</div>
   <p>区间：{cut} ~ {last_date}（近五年，共 {len(win)} 个交易日）。以<b>全历史</b>计算 MA500（前置充足，无截断误差）。
-  破位定义为当日收盘价 &lt; 当日 MA500；连续交易日计为一段。</p>
+  破位定义为当日收盘价 &lt; 当日 MA500；间隔 &le;5 个交易日的破位段视为同一波行情合并显示(避免二次探底被切独立段而极值低估)。</p>
   <table><thead><tr><th>均线</th><th>近五年破位占比</th><th>说明</th></tr></thead><tbody>
     <tr><td>MA250</td><td>{below_rates[250]:.1f}%</td><td>覆盖近 ~4.7 年(前置250)</td></tr>
     <tr><td>MA350</td><td>{below_rates[350]:.1f}%</td><td>覆盖近 ~4.5 年(前置350)</td></tr>
