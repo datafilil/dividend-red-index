@@ -10,6 +10,7 @@
   - 主标的 PE 历史分位(由官网 peg 字段自算)
   - 股息率(官网每日更新的指数估值指标文件, 价格指数 000922 口径)
   - 近五年"收盘价低于 MA500"区间汇总
+  - 成分股(官网权重文件)：前十大权重 + 股息率(最近会计年度/现价, 东财参照口径) + 定期调整预告 + 近五年调整史
 说明：
   - 主标的 H00922 中证红利全收益指数：官网权威直取(全收益=含分红再投资)。
   - 基准 H00985 中证全指全收益：口径与主标的保持一致(全收益 − 全收益)，避免"全收益减价格"
@@ -33,6 +34,8 @@ HIST_START   = "20000101"          # 尽量早取，保证 MA500 前置充足
 INDICATOR_CODE = "000922"          # 股息率指标文件挂在价格指数上(成分与 H00922 一致)
 INDICATOR_URL = ("https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads"
                  f"/file/autofile/indicator/{INDICATOR_CODE}indicator.xls")
+CONS_URL = ("https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads"
+            f"/file/autofile/closeweight/{INDICATOR_CODE}closeweight.xls")  # 成分股权重文件(每月末更新)
 # ====================================================
 
 MAS = [250, 350, 500]
@@ -43,6 +46,7 @@ SITE_DIR     = os.path.join(HERE, "site")   # 发布目录(复制为 index.html 
 CACHE_DIR    = os.path.join(HERE, "cache")  # 全历史日线本地缓存(增量取数用)
 CACHE_P      = os.path.join(CACHE_DIR, f"{PRIMARY_CODE.lower()}.json")
 CACHE_B      = os.path.join(CACHE_DIR, f"{BENCH_CODE}.json")
+CONS_CACHE   = os.path.join(CACHE_DIR, f"{INDICATOR_CODE}cons.json")  # 成分股缓存(取数失败降级用)
 CSINDEX_PERF = "https://www.csindex.com.cn/csindex-home/perf/index-perf"
 DATA_NOTE = ("数据来源：中证指数有限公司官网 csindex.com.cn（指数表现接口 + 每日更新的指数估值指标文件），免费、无需授权。"
              "主标的 H00922 与基准 H00985 均为全收益口径(含分红再投资)，两侧可比。"
@@ -367,6 +371,368 @@ def fetch_indicator():
             import time as _t; _t.sleep(1.5)
     return []
 
+# ---------- 成分股模块（官网权重文件 + 近五年调整史 + 定期调整预告） ----------
+ADJ_HISTORY = [
+    # 近五年样本定期调整史(每年12月生效, 20进20出)。名单以中证指数官网当期公告为准;
+    # 官网自2024年起不长期存档历史进出名单, 以下名单经官方公告/权威媒体转载互证整理。
+    {"year": 2021, "ann": "2021-11-26", "eff": "2021-12-13", "full": True,
+     "ins": ["天健集团(000090)", "江铃汽车(000550)", "冀中能源(000937)", "中南建设(000961)",
+             "伟星股份(002003)", "森马服饰(002563)", "汇洁股份(002763)", "佳士科技(300193)",
+             "华电国际(600027)", "阳光照明(600261)", "江山股份(600389)", "千金药业(600479)",
+             "益佰制药(600594)", "重庆百货(600729)", "唐山港(601000)", "四方股份(601126)",
+             "君正集团(601216)", "陕西煤业(601225)", "平煤股份(601666)", "元祖股份(603886)"],
+     "outs": ["潍柴动力(000338)", "晨鸣纸业(000488)", "佛山照明(000541)", "苏宁环球(000718)",
+              "鲁泰A(000726)", "承德露露(000848)", "华孚时尚(002042)", "九阳股份(002242)",
+              "科华数据(002335)", "永兴材料(002756)", "阳谷华泰(300121)", "永利股份(300230)",
+              "汉宇集团(300403)", "招商银行(600036)", "东睦股份(600114)", "香江控股(600162)",
+              "迪马股份(600565)", "广汇物流(600603)", "福耀玻璃(600660)", "依顿电子(603328)"]},
+    {"year": 2022, "ann": "2022-11-25", "eff": "2022-12-12", "full": False,
+     "ins": ["鲁西化工", "新钢股份", "格力电器"],
+     "outs": ["冀中能源", "宇通客车", "佳士科技", "重庆百货", "大东方", "建新股份"]},
+    {"year": 2023, "ann": "2023-11-24", "eff": "2023-12-11", "full": False,
+     "ins": ["兰花科创", "山西焦煤", "开滦股份", "山煤国际", "潞安环能", "中国石油",
+             "四川路桥", "洪城环境", "山东出版", "宁波华翔", "贵阳银行"],
+     "outs": ["东莞控股", "国投电力", "双汇发展", "养元饮品", "步长制药", "华电国际",
+              "上海石化", "凌霄泵业", "阳光照明", "森马服饰", "深高速", "首开股份",
+              "金地集团", "华联控股", "金融街"]},
+    {"year": 2024, "ann": "2024-11-29", "eff": "2024-12-16", "full": True,
+     "ins": ["粤高速A", "双汇发展", "冀中能源", "陕天然气", "森马服饰", "周大生",
+             "广汇能源", "深高速", "大商股份", "重庆百货", "昊华能源", "西部矿业",
+             "邮储银行", "沪农商行", "成都银行", "中远海控", "中国平安", "重庆银行",
+             "东方环宇", "同力股份(北交所首个样本)"],
+     "outs": ["万科A", "万年青", "伟星股份", "达安基因", "三钢闽光", "电投能源",
+              "康力电梯", "金洲管道", "保利发展", "江山股份", "千金药业", "申能股份",
+              "川投能源", "物产中大", "华新水泥", "马钢股份", "梅花生物", "长江电力",
+              "中国太保", "元祖股份"]},
+    {"year": 2025, "ann": "2025-11-28", "eff": "2025-12-15", "full": True,
+     "ins": ["藏格矿业(000408)", "上峰水泥(000672)", "神火股份(000933)", "兔宝宝(002043)",
+             "报喜鸟(002154)", "亚太科技(002540)", "索菲亚(002572)", "永兴材料(002756)",
+             "军信股份(301109)", "招商银行(600036)", "云天化(600096)", "安徽建工(600502)",
+             "中粮糖业(600737)", "中国海油(600938)", "晋控煤业(601001)", "厦门银行(601187)",
+             "中国外运(601598)", "中创智领(601717)", "浙商银行(601916)", "中创物流(603967)"],
+     "outs": ["威孚高科(000581)", "鲁西化工(000830)", "华菱钢铁(000932)", "冀中能源(000937)",
+              "宁波华翔(002048)", "鲁阳节能(002088)", "富安娜(002327)", "明德生物(002932)",
+              "浦发银行(600000)", "宝钢股份(600019)", "华发股份(600325)", "宁沪高速(600377)",
+              "盘江股份(600395)", "深高速(600548)", "大商股份(600694)", "新钢股份(600782)",
+              "旗滨集团(601636)", "武进不锈(603878)", "蓝天燃气(605368)", "奥泰生物(688606)"]},
+]
+
+def fetch_constituents():
+    """官网成分股权重文件(.xls, 每月末更新)：{date:'YYYYMMDD', items:[{code,name,weight}]}。
+    失败时读取上次缓存；缓存也没有则返回空(成分股为增强模块, 不中断主流程)。"""
+    try:
+        import xlrd
+    except ImportError:
+        print("      [提示] 未安装 xlrd，成分股模块降级")
+        xlrd = None
+    items, d = [], None
+    if xlrd is not None:
+        tmp = os.path.join(HERE, "cons_tmp.xls")
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(CONS_URL, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req, timeout=40) as r:
+                    raw = r.read()
+                if len(raw) < 4096:
+                    raise RuntimeError(f"权重文件过小({len(raw)}B)")
+                open(tmp, "wb").write(raw)
+                sh = xlrd.open_workbook(tmp).sheet_by_index(0)
+                for r_ in range(1, sh.nrows):
+                    v = [sh.cell_value(r_, c) for c in range(sh.ncols)]
+                    dd = str(v[0]).split(".")[0]
+                    if len(dd) == 8 and dd.isdigit():
+                        d = dd
+                    code = str(v[4]).split(".")[0].strip()
+                    if len(code) != 6 or not code.isdigit():
+                        continue
+                    try: w = float(v[9])
+                    except (TypeError, ValueError): w = None
+                    items.append({"code": code, "name": str(v[5]).strip(), "weight": w})
+                if len(items) < 90:
+                    raise RuntimeError(f"成分股数量异常({len(items)})")
+                obj = {"date": d, "items": items}
+                try:
+                    json.dump(obj, open(CONS_CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+                except Exception:
+                    pass
+                print(f"      成分股: 官网权重文件({d}) 取得 {len(items)} 只")
+                return obj
+            except Exception as e:
+                if attempt == 2:
+                    print(f"      [提示] 成分股权重文件获取失败: {e}")
+                else:
+                    time.sleep(1.5)
+    if os.path.exists(CONS_CACHE):
+        try:
+            obj = json.load(open(CONS_CACHE, encoding="utf-8"))
+            print(f"      成分股: 使用缓存({obj.get('date')}) 共 {len(obj.get('items') or [])} 只")
+            return obj
+        except Exception:
+            pass
+    return {"date": None, "items": []}
+
+def fetch_div_yields(codes):
+    """自算个股价息率 = 最近一个完整会计年度每股税前分红合计 ÷ 最新收盘价。
+    分红明细来自东财数据中心(RPT_SHAREBONUS_DET, PRETAX_BONUS_RMB 为每10股税前红利，
+    REPORT_DATE 归属会计年度)；收盘价来自东财批量行情(push2delay)。返回 {code: 股息率%}。
+    口径：按"最近一个有分红记录的会计年度(中报+年报合计)"归集，与官方缓冲区条款
+    "过去一年现金股息率"对齐；比滚动365天窗口更稳(后者会因除息日跨年漂移而错误归零)。
+    早期版本直接取行情接口股息率字段(f115)，实测对小盘/特殊分红个股失真(如-43%、20%)，故弃用。
+    注意：仍非中证官方选样口径(官方选样按"过去三年平均现金股息率")，仅作剔除候选参照。"""
+    out = {}
+    if not codes:
+        return out
+    # 1) 批量最新价
+    px = {}
+    for i in range(0, len(codes), 50):
+        chunk = codes[i:i + 50]
+        secids = ",".join(("1." if c.startswith("6") else "0.") + c for c in chunk)
+        for host in ("https://push2delay.eastmoney.com", "https://push2.eastmoney.com"):
+            try:
+                url = (f"{host}/api/qt/ulist.np/get?secids={secids}"
+                       "&fields=f12,f2&fltt=2&invt=2")
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Referer": "https://quote.eastmoney.com/"})
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    j = json.loads(r.read().decode("utf-8"))
+                for d_ in (j.get("data") or {}).get("diff") or []:
+                    v = d_.get("f2")
+                    if isinstance(v, (int, float)):
+                        px[str(d_.get("f12"))] = float(v)
+                break
+            except Exception:
+                continue
+    # 2) 逐股分红明细 → 最近一个会计年度每股税前分红合计
+    ok = 0
+    for c in codes:
+        price = px.get(c)
+        if not price:
+            continue
+        try:
+            url = (f"https://datacenter-web.eastmoney.com/api/data/v1/get"
+                   f"?reportName=RPT_SHAREBONUS_DET&columns=SECURITY_CODE,REPORT_DATE,EX_DIVIDEND_DATE,PRETAX_BONUS_RMB"
+                   f"&filter=(SECURITY_CODE%3D%22{c}%22)&pageSize=30&pageNumber=1&sortColumns=REPORT_DATE&sortTypes=-1")
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0", "Referer": "https://data.eastmoney.com/"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                j = json.loads(r.read().decode("utf-8"))
+            rows = (j.get("result") or {}).get("data") or []
+            per_year = {}     # 报告期年份 → 每股税前分红合计(含未除息记录)
+            ex_years = set()  # 已有分红实施(已除息)的报告期年份
+            for row in rows:
+                bonus = row.get("PRETAX_BONUS_RMB")
+                y = (row.get("REPORT_DATE") or "")[:4]
+                if not y.isdigit() or bonus is None:
+                    continue
+                per_year[y] = per_year.get(y, 0.0) + float(bonus) / 10.0
+                if (row.get("EX_DIVIDEND_DATE") or ""):
+                    ex_years.add(y)
+            # 只从"已实施分红"的年份中取最近一年——避免选中仅有未除息中期分红的当年，
+            # 否则"年报分红已除息+下一中期未除息"的个股会被错误压缩到近乎为零(实测陕西煤业0.22%)。
+            if per_year and ex_years:
+                out[c] = per_year[max(ex_years)] / price * 100.0
+                ok += 1
+        except Exception:
+            continue
+    print(f"      股息率(最近会计年度): 自算完成 {ok}/{len(codes)} 只(东财分红明细/现价)")
+    return out
+
+def next_adjustment(today=None):
+    """定期调整预告：生效日 = 当年12月第二个星期五的下一交易日(跨周末顺延)。
+    已过生效日则推算下一年。返回 (年份, 生效日date, 公告惯例说明)。"""
+    today = today or datetime.date.today()
+    def sec_friday(y):
+        d = datetime.date(y, 12, 1)
+        d += datetime.timedelta(days=(4 - d.weekday()) % 7)  # 12月第一个周五
+        return d + datetime.timedelta(days=7)                # 第二个周五
+    def eff_day(y):
+        e = sec_friday(y) + datetime.timedelta(days=1)
+        while e.weekday() >= 5:
+            e += datetime.timedelta(days=1)
+        return e
+    y = today.year
+    eff = eff_day(y)
+    if today >= eff:
+        y += 1
+        eff = eff_day(y)
+    return y, eff, f"公告惯例于生效前约两周({y}年11月下旬)发布，以中证指数官网公告为准"
+
+ADD_CACHE = os.path.join(CACHE_DIR, "add_candidates.json")
+
+def fetch_industry_map(codes):
+    """东财行业分类(f100字段)：{code: 行业名}。批量50只/次仅2个请求，失败返回 {}(行业分布模块降级)。
+    注：编制方案无行业权重条款，行业分布为股息率选样的自然结果，此处仅作展示。"""
+    out = {}
+    if not codes:
+        return out
+    for i in range(0, len(codes), 50):
+        chunk = codes[i:i + 50]
+        secids = ",".join(("1." if c.startswith("6") else "0.") + c for c in chunk)
+        for host in ("https://push2delay.eastmoney.com", "https://push2.eastmoney.com"):
+            try:
+                url = (f"{host}/api/qt/ulist.np/get?secids={secids}"
+                       "&fields=f12,f100&fltt=2&invt=2")
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Referer": "https://quote.eastmoney.com/"})
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    j = json.loads(r.read().decode("utf-8"))
+                for d_ in (j.get("data") or {}).get("diff") or []:
+                    if d_.get("f100"):
+                        out[str(d_.get("f12"))] = str(d_["f100"])
+                break
+            except Exception:
+                continue
+    if codes:
+        print(f"      行业分类: 取得 {len(out)}/{len(codes)} 只(东财口径)")
+    return out
+
+def fetch_add_candidates(max_age_days=7):
+    """纳入候选参照：按官方选样规则(近似口径)对全市场做规则化筛选，与剔除候选对称。
+    口径：连续3个会计年度现金分红 + 各年股利支付率(0,1)(每股分红/EPS) + 总市值前80%近似样本空间，
+    按 三年平均每股分红/现价 排名；非成分股进入Top100者，按历年20进20出惯例取前若干只为候选。
+    与官方差异：官方用历年年末市值算股息率、流动性口径为成交额，此处以现价/总市值近似。
+    全市场扫描较重(分红明细约35页+行情快照约56页)，结果缓存 max_age_days 天；
+    扫描失败自动降级读旧缓存(不限龄)；完全无数据返回 None(不中断主流程)。"""
+    def _load_cache():
+        try:
+            return json.load(open(ADD_CACHE, encoding="utf-8"))
+        except Exception:
+            return None
+    cached = _load_cache()
+    if cached and cached.get("generated"):
+        try:
+            age = (datetime.date.today() - datetime.date.fromisoformat(cached["generated"])).days
+            if age <= max_age_days:
+                print(f"      纳入候选: 使用{age}天前缓存({cached['generated']})")
+                return cached
+        except ValueError:
+            pass
+    today = datetime.date.today()
+    years = [str(today.year - 3), str(today.year - 2), str(today.year - 1)]
+    y_last = years[-1]
+    def get_json(url, timeout=25, retries=3):
+        for a in range(retries):
+            try:
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Referer": "https://data.eastmoney.com/"})
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    return json.loads(r.read().decode("utf-8"))
+            except Exception:
+                if a == retries - 1:
+                    raise
+                time.sleep(1.5)
+    try:
+        # 1) 全市场分红明细(REPORT_DATE 归年)
+        divs = {}
+        page = 1
+        while True:
+            j = get_json("https://datacenter-web.eastmoney.com/api/data/v1/get"
+                         "?reportName=RPT_SHAREBONUS_DET"
+                         "&columns=SECURITY_CODE,SECURITY_NAME_ABBR,REPORT_DATE,EX_DIVIDEND_DATE,PRETAX_BONUS_RMB,BASIC_EPS"
+                         f"&filter=(EX_DIVIDEND_DATE%3E%3D'{years[0]}-01-01')"
+                         f"&pageNumber={page}&pageSize=500&sortColumns=EX_DIVIDEND_DATE,SECURITY_CODE&sortTypes=-1,-1")
+            res = j.get("result") or {}
+            for row in res.get("data") or []:
+                code = row.get("SECURITY_CODE")
+                bonus = row.get("PRETAX_BONUS_RMB")
+                rd = (row.get("REPORT_DATE") or "")[:10]
+                if not code or bonus is None or not rd:
+                    continue
+                yy = rd[:4]
+                if yy not in years:
+                    continue
+                d = divs.setdefault(code, {"name": row.get("SECURITY_NAME_ABBR") or "", "years": {}, "eps": {}})
+                d["years"][yy] = d["years"].get(yy, 0.0) + float(bonus) / 10.0
+                if rd.endswith("12-31") and row.get("BASIC_EPS"):
+                    try:
+                        d["eps"][yy] = float(row["BASIC_EPS"])
+                    except (TypeError, ValueError):
+                        pass
+            if page >= (res.get("pages") or 1):
+                break
+            page += 1
+        # 2) 全A行情快照(现价/总市值)
+        quotes = {}
+        pn = 1
+        while True:
+            j = get_json("https://push2delay.eastmoney.com/api/qt/clist/get"
+                         f"?pn={pn}&pz=100&po=1&np=1&fltt=2&invt=2&fid=f20"
+                         "&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23"
+                         "&fields=f12,f14,f2,f6,f20", retries=4)
+            data = j.get("data") or {}
+            diff = data.get("diff") or []
+            if not diff:
+                break
+            for d_ in diff:
+                c = d_.get("f12")
+                if not c:
+                    continue
+                def fnum(x):
+                    return float(x) if isinstance(x, (int, float)) else None
+                quotes[c] = {"name": d_.get("f14") or "", "price": fnum(d_.get("f2")), "mcap": fnum(d_.get("f20"))}
+            if pn * 100 >= (data.get("total") or 0):
+                break
+            pn += 1
+        # 3) 资格筛选与排名
+        members = set()
+        try:
+            members = {c["code"] for c in json.load(open(CONS_CACHE, encoding="utf-8")).get("items") or []}
+        except Exception:
+            pass
+        mcaps = sorted(q["mcap"] for q in quotes.values() if q["mcap"])
+        mcap_cut = mcaps[int(len(mcaps) * 0.8)] if mcaps else None
+        cands = []
+        for code, d in divs.items():
+            ys = d["years"]
+            if not all(ys.get(yy, 0) > 0 for yy in years):
+                continue
+            q = quotes.get(code)
+            if not q or not q["price"]:
+                continue
+            pays = {}
+            ok_payout = True
+            for yy in years:
+                eps = d["eps"].get(yy)
+                if not eps or eps <= 0:
+                    ok_payout = False
+                    break
+                p = ys[yy] / eps
+                if not (0 < p < 1):
+                    ok_payout = False
+                    break
+                pays[yy] = p
+            if not ok_payout or not (0 < sum(pays.values()) / 3 < 1):
+                continue
+            name = q["name"] or d["name"]
+            if "ST" in name.upper() or "退" in name:
+                continue
+            if code.startswith(("4", "8", "92")):   # 北交所不在中证全指样本空间
+                continue
+            if mcap_cut and (q["mcap"] or 0) < mcap_cut:
+                continue
+            y3 = sum(ys[yy] for yy in years) / 3 / q["price"] * 100
+            cands.append({"code": code, "name": name, "y3": y3,
+                          "y_last": ys[y_last] / q["price"] * 100,
+                          "mcap": q["mcap"], "member": code in members})
+        cands.sort(key=lambda x: -x["y3"])
+        newcomers = [c for c in cands[:100] if not c["member"]]
+        out = {"generated": today.isoformat(), "years": years,
+               "n_elig": len(cands), "n_member_top100": sum(1 for c in cands[:100] if c["member"]),
+               "n_newcomers": len(newcomers), "newcomers": newcomers[:25]}
+        try:
+            json.dump(out, open(ADD_CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+        except Exception:
+            pass
+        print(f"      纳入候选: 全市场扫描完成(合格池{len(cands)}, 非成分Top100 {len(newcomers)})")
+        return out
+    except Exception as e:
+        print(f"      [提示] 纳入候选扫描失败({e})，降级用旧缓存" if cached else f"      [提示] 纳入候选扫描失败({e})，无缓存可用")
+        return cached
+
 def sma_series(closes, w):
     """返回与 closes 等长的列表，前 w-1 个为 None。"""
     n = len(closes)
@@ -468,8 +834,10 @@ def svg_loglog_trend(dates, closes, i0, i1,
                      title="中证红利全收益指数 长期趋势（对数-对数 · 二阶拟合）",
                      width=880, height=380):
     """对数-对数趋势：ln(P)=c0+c1·ln(年)+c2·ln²(年)，价格取对数轴，叠加 ±1.5σ 置信带。
-    置信带 = 拟合曲线 ± 1.5×残差标准差σ(ln)，为「包裹曲线」的散布区间：
-    正态假设下约覆盖 86.6% 的单日观测，视觉上包住绝大部分价格走势。"""
+    σ 用稳健估计(MAD×1.4826)而非经典标准差——A股崩盘日的极端残差会把经典σ撑大(实测约+16%)，
+    导致平时的带偏宽；MAD 只反映常态散布，包裹区间更贴近大多数交易日。
+    置信带 = 拟合曲线 ± 1.5×σ，正态假设下约覆盖 86.6% 的单日观测，视觉上包住绝大部分价格走势。
+    另标注编制方案修订日竖线(2022-12-12 / 2025-10-13)作结构性断点参考。"""
     idx = list(range(i0, i1 + 1))
     if len(idx) < 4:
         return ""
@@ -498,7 +866,11 @@ def svg_loglog_trend(dates, closes, i0, i1,
     c0, c1, c2 = c
     fit_ln = [c0 + c1 * lt[i] + c2 * lt[i] ** 2 for i in range(n)]
     resid = [lnP[i] - fit_ln[i] for i in range(n)]
-    sigma = math.sqrt(sum(x * x for x in resid) / (n - 1))
+    # 稳健σ(MAD法)：中位数绝对偏差×1.4826。经典σ会被崩盘日极端残差撑大(实测约+16%)，
+    # MAD 只反映常态散布，是本场景更合适的尺度估计。
+    srt = sorted(resid)
+    med = srt[n // 2] if n % 2 else (srt[n // 2 - 1] + srt[n // 2]) / 2
+    sigma = 1.4826 * sorted(abs(r - med) for r in resid)[n // 2]
     mean_y = sum(lnP) / n
     ss_tot = sum((v - mean_y) ** 2 for v in lnP)
     R2 = 1 - sum(x * x for x in resid) / ss_tot if ss_tot else 0.0
@@ -529,7 +901,7 @@ def svg_loglog_trend(dates, closes, i0, i1,
                 yt.append(val)
 
     sign = "+" if c2 >= 0 else "−"
-    sub = (f"ln(P)={c0:.3f}{c1:+.3f}·ln(年){sign}{abs(c2):.3f}·ln²(年) ｜ R²={R2:.3f} ｜ σ(ln)={sigma:.4f} ｜ "
+    sub = (f"ln(P)={c0:.3f}{c1:+.3f}·ln(年){sign}{abs(c2):.3f}·ln²(年) ｜ R²={R2:.3f} ｜ 稳健σ(MAD)={sigma:.4f} ｜ "
            f"当前 {cur:,.0f} 偏离拟合 {dev:+.1f}%（{'带内' if in_band else '带外'}）｜ ±1.5σ 置信带半宽≈{band_half:.1f}%")
     svg = [f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,Segoe UI,Arial,sans-serif">']
     svg.append(f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>')
@@ -546,6 +918,15 @@ def svg_loglog_trend(dates, closes, i0, i1,
         if xx < L + 16: anchor = "start"
         elif xx > width - R - 16: anchor = "end"
         svg.append(f'<text x="{xx:.1f}" y="{height-12}" font-size="11" fill="#9ca3af" text-anchor="{anchor}">{tlab}</text>')
+    # 编制方案修订日竖线（结构性断点参考）：2013-07-02 改股息率加权(2016起点下在样本外)、
+    # 2022-12-12 提高分红连续性要求+权重上限、2025-10-13 延续2022框架的进一步修订。
+    for dstr, lab in (("2022-12-12", "2022修订"), ("2025-10-13", "2025修订")):
+        dd = datetime.date.fromisoformat(dstr)
+        if dates[i0] <= dd <= dates[i1]:
+            j = min(idx, key=lambda i_: abs((dates[i_] - dd).days))
+            xv = mx(j)
+            svg.append(f'<line x1="{xv:.1f}" y1="{T}" x2="{xv:.1f}" y2="{T+ph:.1f}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>')
+            svg.append(f'<text x="{xv:.1f}" y="{T+27}" font-size="10" fill="#94a3b8" text-anchor="middle">{lab}</text>')
     # 下沿链必须 x/y 同序反向：k 与 idx[k] 一一对应(此前用 enumerate(reversed(idx)) 导致
     # x 反向、y 正向，下沿被画成对角线，多边形扭曲成喇叭口)。
     band_pts = " ".join(f"{mx(i):.1f},{my(up[k]):.1f}" for k, i in enumerate(idx)) + " " + \
@@ -697,14 +1078,18 @@ for w in MAS:
 svg1 = svg_line_chart(f"{PRIMARY_NAME} 收盘与长期均线 (近10年, MA250/350/500)", c1, y_precision=0,
                       x_ticks=year_ticks(p_dates, x0, len(p) - 1))
 
+cut16 = datetime.date(2016, 1, 1)
+diff_16 = [(i, v) for i, v in diff_series if p_dates[i] >= cut16]
 c2 = [{"name": "40日收益差值(%)", "color": "#7c3aed",
-       "points": [(i, v*100) for i, v in diff_series], "width": 1.6}]
-svg2 = svg_line_chart(f"{PRIMARY_NAME} − {BENCH_NAME} 40日收益差值(%)", c2, zero_line=True, y_precision=1,
-                      x_ticks=year_ticks(p_dates, diff_series[0][0], diff_series[-1][0], max_ticks=9))
+       "points": [(i, v*100) for i, v in diff_16], "width": 1.6}]
+svg2 = svg_line_chart(f"{PRIMARY_NAME} − {BENCH_NAME} 40日收益差值(%) (2016年起)", c2, zero_line=True, y_precision=1,
+                      x_ticks=year_ticks(p_dates, diff_16[0][0], diff_16[-1][0], max_ticks=9))
 
-# 图3 长期趋势（对数-对数二阶拟合，自2016年起，价格对数轴 + ±1.5σ 置信带）
-i0_16 = next((i for i, d in enumerate(p_dates) if d >= datetime.date(2016, 1, 1)), 0)
-svg3 = svg_loglog_trend(p_dates, p_close, i0_16, len(p) - 1)
+# 图3 长期趋势（对数-对数二阶拟合，自2016-01起，价格对数轴 + ±1.5σ(MAD) 置信带）
+# 起点依据：2016-01-01 起（与收益差图表周期对齐）；2013-07-02 加权方式已改为股息率加权，
+# 故 2016 起的样本同处股息率加权框架内。σ 用 MAD 稳健估计，修订日竖线作断点参考。
+i0_trend = next((i for i, d in enumerate(p_dates) if d >= datetime.date(2016, 1, 1)), 0)
+svg3 = svg_loglog_trend(p_dates, p_close, i0_trend, len(p) - 1)
 
 print(f"[5] 生成报告 ...")
 
@@ -726,6 +1111,130 @@ for e in ep_stats[:15]:
                 f"<td>{e['deep_close']:.2f}</td><td>{e['deep_ma']:.2f}</td></tr>")
 if not ep_rows:
     ep_rows = "<tr><td colspan='7' style='text-align:center;color:#16a34a'>近五年无破位</td></tr>"
+
+# ---------- 成分股模块：当前成分(官网) + 剔除候选(规则参照) + 调整预告 + 近五年调整史 ----------
+cons = fetch_constituents()
+cons_items = cons.get("items") or []
+cons_dy = fetch_div_yields([c["code"] for c in cons_items]) if cons_items else {}
+for c in cons_items:
+    c["dy"] = cons_dy.get(c["code"])
+cons_date = cons.get("date")
+cons_date_cn = (f"{cons_date[:4]}-{cons_date[4:6]}-{cons_date[6:]}" if cons_date else "—")
+top10 = sorted([c for c in cons_items if c["weight"] is not None],
+               key=lambda x: -x["weight"])[:10]
+top10_sum = sum(c["weight"] for c in top10) if top10 else None
+# 行业权重分布(东财口径)：编制方案无行业权重条款, 行业集中是股息率选样的自然涌现结果
+ind_map = fetch_industry_map([c["code"] for c in cons_items]) if cons_items else {}
+ind_agg, ind_cnt = {}, {}
+for c in cons_items:
+    nm = ind_map.get(c["code"])
+    if nm and c["weight"] is not None:
+        ind_agg[nm] = ind_agg.get(nm, 0.0) + c["weight"]
+        ind_cnt[nm] = ind_cnt.get(nm, 0) + 1
+ind_sorted = sorted(ind_agg.items(), key=lambda x: -x[1])
+_dy_have = [c for c in cons_items if c["dy"] is not None and c["weight"]]
+wavg_dy = None
+if _dy_have:
+    _wsum = sum(c["weight"] for c in _dy_have)
+    wavg_dy = sum(c["weight"] * c["dy"] for c in _dy_have) / _wsum if _wsum else None
+# 剔除候选：按股息率(最近会计年度)升序取最低20只(公告惯例20进20出；缓冲区硬条件为"过去一年现金股息率>0.5%"，此处为参照口径)
+cand = sorted(_dy_have, key=lambda x: x["dy"])[:20]
+# 纳入候选：全市场按官方规则近似筛选(缓存7天,失败降级旧缓存),与剔除候选对称的参照
+addc = fetch_add_candidates()
+adj_y, adj_eff, adj_note = next_adjustment()
+adj_eff_cn = f"{adj_y}年12月第二个星期五的下一交易日 {adj_eff.isoformat()}（{WEEKDAY_CN[adj_eff.weekday()]}）"
+
+top10_rows = ""
+for i, c in enumerate(top10):
+    dy_s = "—" if c["dy"] is None else f"{c['dy']:.2f}%"
+    top10_rows += (f"<tr><td>{i+1}</td><td>{c['code']}</td><td>{c['name']}</td>"
+                   f"<td>{c['weight']:.3f}%</td><td>{dy_s}</td></tr>")
+cand_rows = "".join(
+    f"<tr><td>{c['code']}</td><td>{c['name']}</td>"
+    f"<td class='{'neg' if c['dy'] <= 0.5 else ''}'>{c['dy']:.2f}%</td></tr>"
+    for c in cand)
+# 行业权重分布折叠表(默认收起,点击展开)
+if ind_sorted:
+    ind_rows = "".join(
+        f"<tr><td>{i+1}</td><td>{nm}</td><td>{w:.2f}%</td><td>{ind_cnt[nm]}</td></tr>"
+        for i, (nm, w) in enumerate(ind_sorted))
+    _top2 = " / ".join(f"{nm} {w:.2f}%" for nm, w in ind_sorted[:2])
+    ind_block = f"""
+  <details><summary style="cursor:pointer;margin-top:8px"><b>行业权重分布（东财行业口径 · {len(ind_sorted)} 个行业，点击展开/收起）</b></summary>
+  <p style="margin:6px 0 2px">编制方案无行业权重上限条款(仅个股上限:单一样本≤10%、总市值&lt;100亿样本≤0.5%)，
+  行业集中为股息率选样的自然结果；当前前两大行业 <b>{_top2}</b>，合计 {sum(w for _, w in ind_sorted[:2]):.1f}%。</p>
+  <table><thead><tr><th>#</th><th>行业</th><th>权重合计</th><th>只数</th></tr></thead>
+  <tbody>{ind_rows}</tbody></table>
+  </details>"""
+else:
+    ind_block = ""
+# 纳入候选折叠表(默认收起,点击展开)
+if addc and addc.get("newcomers"):
+    _nc = addc["newcomers"][:20]
+    _ylab = (addc.get("years") or ["", "", ""])[-1]
+    add_rows = "".join(
+        f"<tr><td>{i+1}</td><td>{c['code']}</td><td>{c['name']}</td>"
+        f"<td>{c['y3']:.2f}%</td><td>{c['y_last']:.2f}%</td><td>{c['mcap']/1e8:.0f}</td></tr>"
+        for i, c in enumerate(_nc))
+    add_head = (f"（全市场按官方选样规则近似筛选：连续{len(addc.get('years') or [0,0,0])}个会计年度分红+支付率0~1+"
+                f"总市值前80%，按三年平均股息率排名，非成分股Top100中取前20；数据生成于 {addc.get('generated')}，每7天刷新）")
+    add_block = f"""
+  <p style="margin-top:10px"><b>纳入候选参照</b>{add_head}：当前头名 <b>{_nc[0]['name']} {_nc[0]['y3']:.2f}%</b>，
+  共 {addc.get('n_elig', '—')} 只过资格线、非成分股进入Top100 {addc.get('n_newcomers', len(addc.get('newcomers', [])))} 只。</p>
+  <details><summary style="cursor:pointer"><b>纳入候选 Top20（点击展开/收起）</b></summary>
+  <table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>三年平均股息率</th><th>{_ylab}年股息率</th><th>总市值(亿)</th></tr></thead>
+  <tbody>{add_rows}</tbody></table>
+  </details>
+  <p class="refnote">与剔除候选同为规则参照非预测名单；官方按历年年末市值计股息率，此处以现价近似，年内大涨个股排名会偏高。
+  官方纳入名单以 {adj_y} 年 11 月下旬公告为准。</p>"""
+else:
+    add_block = """
+  <p style="margin-top:10px"><b>纳入候选参照</b>：本轮全市场扫描不可用（接口失败且无历史缓存），下次运行自动重试。</p>"""
+adj_hist_html = ""
+for h in ADJ_HISTORY:
+    ins_txt = "、".join(h["ins"])
+    outs_txt = "、".join(h["outs"])
+    mark = "" if h["full"] else " <span style='color:#b45309'>（公开渠道仅部分恢复，完整名单以官网当期公告为准）</span>"
+    adj_hist_html += (
+        f"<details><summary><b>{h['year']}年调整</b> · 公告 {h['ann']} · 新样本自 {h['eff']} 启用"
+        f"（公告20进20出{mark}）</summary>"
+        f"<p style='margin:6px 0 2px'><b>纳入：</b>{ins_txt}</p>"
+        f"<p style='margin:2px 0 8px'><b>剔除：</b>{outs_txt}</p></details>")
+
+cons_html = f"""
+<section><h2>成分股（官网权重文件 · 数据日期 {cons_date_cn}）</h2>
+<details><summary style="cursor:pointer;font-weight:600;color:#0f172a;margin:4px 0">当前样本概览（点击展开/收起）</summary>
+<div class="refbox" style="margin-top:4px">
+  <p>成分股 <b>{len(cons_items)}</b> 只；前十大权重合计 <b>{'—' if top10_sum is None else f'{top10_sum:.1f}%'}</b>；
+  成分股股息率加权均值(最近会计年度) <b>{'—' if wavg_dy is None else f'{wavg_dy:.2f}%'}</b>
+  （个股价息率取自东方财富行情，为参照口径，非中证官方选样口径）。</p>
+  <table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>权重</th><th>股息率(年)</th></tr></thead>
+  <tbody>{top10_rows}</tbody></table>
+  <p class="refnote">仅列前十大权重，全部100只见官网权重文件（autofile/closeweight）。</p>{ind_block}
+</div>
+</details>
+<details><summary style="cursor:pointer;font-weight:600;color:#0f172a;margin:8px 0 4px">下次定期调整预告 · 规则推算，非官方名单（点击展开/收起）</summary>
+<div class="refbox" style="margin-top:4px">
+  <p><b>生效日：{adj_eff_cn}</b>。{adj_note}。按编制方案，每次调整的样本比例一般不超过20%（即最多更换约20只），
+  除非因不满足「过去一年现金股息率大于 0.5%」而剔除的原样本超过20%。</p>
+  <p><b>缓冲区条款</b>（2022-12修订版，原样本不满足以下任一条件即失去样本资格）：
+  ① 过去一年现金股息率 &gt; 0.5%；② 过去一年日均总市值位于中证全指样本空间前90%；
+  ③ 过去一年日均成交金额位于中证全指样本空间前90%；④ 过去三年股利支付率均值在 0～1 之间。</p>
+  <p><b>剔除候选参照</b>（当前样本中股息率最低的20只，按公告惯例20进20出取满额；口径为最近会计年度分红/现价，≤ 0.5% 将触发缓冲区硬条件，红色标注）：
+  由于完整选样需全市场「过去三年平均股息率」排名（官方未公开逐股数据），下表仅为规则参照，<b>不构成调整名单预测</b>。</p>
+  <table><thead><tr><th>代码</th><th>名称</th><th>股息率(年)</th></tr></thead>
+  <tbody>{cand_rows}</tbody></table>{add_block}
+  <p class="refnote">临时调整：样本退市即剔除；收购、合并、分拆等按指数计算与维护细则处理。</p>
+</div>
+</details>
+<div class="refbox">
+  <div class="reftitle">近五年样本调整史（每年12月生效，惯例20进20出）</div>
+  {adj_hist_html}
+  <p class="refnote">来源：中证指数官网当期公告及附件、权威媒体转载互证（2022/2023年官方未长期存档完整名单，仅部分恢复）。
+  注：招商银行 2021 年被剔除、2025 年重新纳入；深高速/森马服饰/重庆百货/冀中能源等呈现"调出-回调入"的样本轮动特征。</p>
+</div>
+</section>
+"""
 
 html = f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
@@ -804,8 +1313,9 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 <section><h2>长期趋势（对数-对数 · 二阶拟合）</h2>
 <div class="refbox">
   <div class="reftitle">模型说明</div>
+  <p><b>起点取 2016-01-01</b>（与 40日收益差图表周期对齐；样本同处 2013-07-02 股息率加权改革后的编制框架内，此前的市值加权序列不参与拟合）。图中灰色竖线标注 <b>2022-12-12</b>（分红连续性要求 2年→3年 + 股利支付率约束 + 个股权重上限）与 <b>2025-10-13</b> 两次编制方案修订日，属同一框架下的调整，不作断点剔除。</p>
   <p>ln(P) 对 ln(年) 做<b>二阶拟合</b>——指数为复利增长，log-log 空间下真实趋势是曲线，一阶幂律直线会穿中段、漏首尾（初始值塌陷），二阶项让曲线同时贴住起点与当前。</p>
-  <p>图中置信带为拟合曲线 <b>±1.5×标准差（σ）</b> 的包裹区间——由残差标准差 σ(ln)（见统计行）上下平移 1.5 倍形成，正态假设下约覆盖 86.6% 的单日观测，视觉上包住绝大部分价格走势，用于直观判断当前点位相对长期趋势的位置。</p>
+  <p>图中置信带为拟合曲线 <b>±1.5×稳健标准差</b> 的包裹区间——σ 用 MAD 法估计（中位数绝对偏差×1.4826），避免崩盘日极端残差把带撑宽（经典 σ 实测被高估约 16%）；正态假设下约覆盖 86.6% 的单日观测。用于直观判断当前点位相对长期趋势的位置；注意该读数对起点选择敏感，宜作位置参照而非买卖信号。</p>
 </div>
 <div class="chart">{svg3}</div>
 </section>
@@ -825,6 +1335,8 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
   <tbody>{ep_rows}</tbody></table>
   <p class="refnote">提示：单日假破位噪音较大；若作提醒条件，建议"连续 ≥3 日破位 且 偏离 &gt;2%"再触发，可过滤短假破位。</p>
 </div></section>
+
+{cons_html}
 
 <section><h2>历史快照（最近 {min(12,len(history))} 次）</h2>
 <table><thead><tr><th>日期</th><th>收盘</th><th>MA250</th><th>MA350</th><th>MA500</th><th>40日差值%</th><th>PE分位%</th><th>股息率%</th></tr></thead>
