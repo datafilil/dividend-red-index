@@ -6,25 +6,29 @@
        接口：/csindex-home/perf/index-perf  (免费、无需 Key、返回 16 年日线)
 指标：
   - 主标的(全收益)收盘价 MA250 / MA350 / MA500
-  - 主标的 40 日收益 − 基准(中证全指 000985) 40 日收益 = 40日收益差值
+  - 主标的 40 日收益 − 基准(中证全指全收益 H00985) 40 日收益 = 40日收益差值
   - 主标的 PE 历史分位(由官网 peg 字段自算)
   - 股息率(官网每日更新的指数估值指标文件, 价格指数 000922 口径)
   - 近五年"收盘价低于 MA500"区间汇总
 说明：
   - 主标的 H00922 中证红利全收益指数：官网权威直取(全收益=含分红再投资)。
+  - 基准 H00985 中证全指全收益：口径与主标的保持一致(全收益 − 全收益)，避免"全收益减价格"
+    造成红利超额收益被系统性高估。如需改用价格口径，务必同时把 PRIMARY_CODE 换成 000922。
+  - 滚动窗口一律在"主标的与基准的交易日交集"上按下标滚动，任一源缺失/多余交易日都不会错位。
+  - 写入缓存前会清洗非交易日与幽灵行(详见 sanitize_bars)，并在尾部做数据质量校验。
   - 全部数据源均为中证指数官网(csindex.com.cn)及其官方指标文件，免费、无需授权。
   - 全部为离线自包含 HTML(SVG 图表,无外部依赖)。输出注明来源与"非投资建议"。
 依赖：xlrd(解析官网指标 .xls, 已装于托管 Python；缺失时自动跳过股息率, 不中断主流程)
 """
-import os, sys, json, math, datetime, urllib.request, urllib.error
+import os, sys, json, math, time, datetime, urllib.request, urllib.error
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # ============ 可配置区（标的切换只改这里）============
 PRIMARY_CODE = "H00922"            # 中证红利全收益指数(全收益=含分红)
 PRIMARY_NAME = "中证红利全收益指数"
-BENCH_CODE   = "000985"            # 中证全指(基准)
-BENCH_NAME   = "中证全指"
+BENCH_CODE   = "H00985"            # 中证全指全收益(基准；口径须与 PRIMARY_CODE 同为全收益)
+BENCH_NAME   = "中证全指全收益"
 HIST_START   = "20000101"          # 尽量早取，保证 MA500 前置充足
 INDICATOR_CODE = "000922"          # 股息率指标文件挂在价格指数上(成分与 H00922 一致)
 INDICATOR_URL = ("https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads"
@@ -41,8 +45,181 @@ CACHE_P      = os.path.join(CACHE_DIR, f"{PRIMARY_CODE.lower()}.json")
 CACHE_B      = os.path.join(CACHE_DIR, f"{BENCH_CODE}.json")
 CSINDEX_PERF = "https://www.csindex.com.cn/csindex-home/perf/index-perf"
 DATA_NOTE = ("数据来源：中证指数有限公司官网 csindex.com.cn（指数表现接口 + 每日更新的指数估值指标文件），免费、无需授权。"
-             "主标的 H00922 为全收益口径(含分红再投资)；基准 000985 中证全指。"
+             "主标的 H00922 与基准 H00985 均为全收益口径(含分红再投资)，两侧可比。"
+             "40 日收益差在主标的与基准的交易日交集上按 40 个交易日滚动计算。"
              "PE 分位由官网 peg 字段在自身历史中计算；股息率取自官网指标文件(000922 价格指数口径)。")
+
+# ============ 数据质量：交易日清洗 & 告警 ============
+# 背景：中证官网曾返回一行 2026-08-29(周六) 的伪数据，收盘价与次日 8/31 完全相同。
+# 该行写入缓存后，使按数组下标滚动的窗口整体错位 1 个交易日，污染此后所有 40 日收益差。
+# 另发现 2018-06-18(端午节休市) 同样是幽灵行：000922/000985/H00922 三条指数在该日的
+# 收盘价与 6/15 分毫不差，全收益口径 H00985 仅因股息累积微增 0.012%——真实交易日
+# 不可能完全持平，据此可判定该日休市。
+WEEKDAY_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+# 权威交易日历(首选)：分年从东方财富拉取并本地缓存，可同时剔除周末与法定节假日。
+# 拉取失败(网络/限流)时自动降级为「仅周末过滤」并打印告警，绝不阻断主流程。
+CALENDAR_FILE = os.path.join(CACHE_DIR, "trading_calendar.json")
+CALENDAR_SYMBOL = "1.000001"      # 东财口径：上证指数，仅用于取 A 股交易日历
+CALENDAR_SYMBOL_TX = "sh000001"   # 腾讯口径：上证指数(实测稳定，作为主源)
+CALENDAR_START_YEAR = 2005
+# 手工补充的节假日(工作日但休市)，按 "YYYY-MM-DD" 追加；交易日历可用时本表为冗余保险
+KNOWN_HOLIDAYS = set()
+# 相邻两日收盘价完全相同时是否告警(只告警、不删除，原因见 sanitize_bars 规则 C)
+WARN_DUP_CLOSE = True
+# 尾部校验：最新交易日距今超过该天数视为数据陈旧(覆盖春节/国庆等最长休市)
+MAX_STALE_DAYS = 10
+_TRADE_CAL = None                 # 惰性加载的交易日历缓存
+
+
+def load_trading_calendar():
+    """加载 A 股权威交易日历(日期字符串集合)。优先读本地缓存，缺失则分年从东财拉取。
+    失败返回 None(调用方降级为仅周末过滤)，绝不因日历不可用而中断主流程。"""
+    global _TRADE_CAL
+    if _TRADE_CAL is not None:
+        return _TRADE_CAL
+    if os.path.exists(CALENDAR_FILE):
+        try:
+            with open(CALENDAR_FILE, encoding="utf-8") as f:
+                _TRADE_CAL = set(json.load(f))
+            return _TRADE_CAL
+        except Exception as e:
+            print(f"      [数据质量] 交易日历缓存读取失败({e})，将重新拉取")
+    this_year = datetime.date.today().year
+    # 先拉当年：网络故障/接口限流通常是全局性的，当年失败即快速降级，
+    # 避免 20 余个年份逐个重试把日常流程拖到几分钟。
+    days = _fetch_calendar_year(this_year)
+    if days is None:
+        print(f"      [数据质量·告警] 交易日历拉取失败(疑似网络或限流)，降级为仅剔除周末；"
+              f"节假日幽灵行(如 2018-06-18)本轮无法识别")
+        return None
+    for y in range(CALENDAR_START_YEAR, this_year):
+        chunk = _fetch_calendar_year(y)
+        if chunk is None:
+            print(f"      [数据质量·告警] 交易日历 {y} 年拉取失败，降级为仅剔除周末")
+            return None
+        days |= chunk
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(CALENDAR_FILE, "w", encoding="utf-8") as f:
+            json.dump(sorted(days), f)
+        print(f"      [数据质量] 交易日历已缓存 {len(days)} 天 -> {CALENDAR_FILE}")
+    except Exception as e:
+        print(f"      [数据质量] 交易日历写缓存失败({e})，不影响本次运行")
+    _TRADE_CAL = days
+    return _TRADE_CAL
+
+
+def _parse_calendar_tx(d):
+    """解析腾讯日线：data.<code>.qfqday / day -> [日期, 开, 收, 高, 低, 量, ...]"""
+    data = d.get("data") or {}
+    node = data.get(CALENDAR_SYMBOL_TX) if isinstance(data, dict) else None
+    if not node:
+        return set()
+    rows = node.get("qfqday") or node.get("day") or []
+    return {str(r[0]) for r in rows if r and str(r[0])}
+
+
+def _parse_calendar_em(d):
+    """解析东财日线：data.klines -> 'YYYY-MM-DD,...'"""
+    kl = (d.get("data") or {}).get("klines") or []
+    return {str(x.split(",")[0]) for x in kl if x}
+
+
+def _fetch_calendar_year(year, retry=2):
+    """拉取某一年的 A 股交易日集合，失败返回 None。
+    双源容灾：优先腾讯(实测稳定、不限流)，失败回退东方财富(易受限流)。"""
+    sources = (
+        ("腾讯", f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+                 f"?param={CALENDAR_SYMBOL_TX},{year}-01-01,{year}-12-31,320,qfq",
+         _parse_calendar_tx),
+        ("东财", f"https://push2his.eastmoney.com/api/qt/stock/kline/get"
+                 f"?secid={CALENDAR_SYMBOL}&klt=101&fqt=0"
+                 f"&beg={year}0101&end={year}1231&fields1=f1,f2,f3&fields2=f51",
+         _parse_calendar_em),
+    )
+    for name, url, parser in sources:
+        for k in range(retry):
+            try:
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Referer": "https://quote.eastmoney.com/"})
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    d = json.loads(r.read().decode("utf-8"))
+                got = parser(d)
+                if got:
+                    return got
+            except Exception:
+                pass
+            if k < retry - 1:
+                time.sleep(2 * (k + 1))
+    return None
+
+
+def sanitize_bars(code, bars):
+    """清洗非交易日与幽灵行，返回 (清洗后 bars, 问题列表)。
+    规则 A  剔除周六/周日：指数不可能在非工作日产生收盘价。(硬删除，零误杀)
+    规则 B  剔除不在权威交易日历中的日期(含法定节假日)。日历不可用则自动跳过本规则。
+    规则 C  仅告警、绝不删除：相邻两日收盘价完全相同。
+            原因——幽灵行可能落在真实日的任一侧(2026-08-29 在前、2018-06-18 在后)，
+            仅凭收盘价无法判定该删哪一日；早期版本按「删前一日」处理已误删真实交易日
+            2018-06-15，故本规则只提示人工核查，不改动数据。
+    """
+    issues = []
+    if not bars:
+        return bars, issues
+    cal = load_trading_calendar()
+    # 日历覆盖不到的早期日期(如指数基日 2004-12-31)不参与日历判定，避免误删基准点
+    cal_min = min(cal) if cal else None
+    kept = []
+    for x in bars:
+        d = x["date"]
+        wd, key = d.weekday(), d.isoformat()
+        if wd >= 5:
+            issues.append(f"{code} {key} 是{WEEKDAY_CN[wd]}，非交易日，已剔除")
+            continue
+        if cal is not None and cal_min and key >= cal_min and key not in cal:
+            issues.append(f"{code} {key} 不在 A 股交易日历中(疑似节假日幽灵行)，已剔除")
+            continue
+        if key in KNOWN_HOLIDAYS:
+            issues.append(f"{code} {key} 是法定节假日，已剔除")
+            continue
+        kept.append(x)
+    bars = kept
+
+    if WARN_DUP_CLOSE:
+        for i in range(1, len(bars)):
+            if bars[i]["close"] == bars[i - 1]["close"]:
+                issues.append(f"[告警·未删除] {code} {bars[i]['date']} 收盘价与前一交易日"
+                              f"({bars[i - 1]['date']})完全相同({bars[i]['close']})，"
+                              f"疑似休市幽灵行，但无法判定应删除哪一日，请人工核查")
+    return bars, issues
+
+
+def report_quality(code, issues):
+    """打印数据质量问题；发现异常时集中提示，便于 CI 日志检索。"""
+    for m in issues:
+        print(f"      [数据质量] {m}")
+    if issues:
+        print(f"      [数据质量] {code} 共 {len(issues)} 处异常，已按规则处理")
+
+
+def check_tail(bars, label):
+    """尾部质量校验：最新交易日必须是工作日且不得陈旧；重复收盘价仅告警。异常即中断。"""
+    if not bars:
+        raise RuntimeError(f"{label} 序列为空")
+    last = bars[-1]
+    wd = last["date"].weekday()
+    if wd >= 5:
+        raise RuntimeError(f"{label} 最新交易日 {last['date']} 是{WEEKDAY_CN[wd]}，数据异常，已中断")
+    stale = (datetime.date.today() - last["date"]).days
+    if stale > MAX_STALE_DAYS:
+        raise RuntimeError(f"{label} 最新交易日 {last['date']} 距今 {stale} 天"
+                           f"(超过 {MAX_STALE_DAYS} 天)，数据可能陈旧，已中断")
+    tail = bars[-5:]
+    for i in range(1, len(tail)):
+        if tail[i]["close"] == tail[i - 1]["close"]:
+            print(f"      [数据质量·告警] {label} 最近连续两日({tail[i - 1]['date']} 与 {tail[i]['date']})"
+                  f"收盘价完全相同({tail[i]['close']})，请人工确认是否为真实收平")
 
 def fetch_index(code, start=HIST_START, end=None, allow_empty=False):
     """返回 [{date:datetime, close, peg}]，按日期升序。失败即报错(不伪造数据)。
@@ -82,6 +259,10 @@ def fetch_index(code, start=HIST_START, end=None, allow_empty=False):
     out.sort(key=lambda x: x["date"])
     if not out:
         raise RuntimeError(f"中证官网 {code} 无有效数据")
+    out, issues = sanitize_bars(code, out)
+    report_quality(code, issues)
+    if not out:
+        raise RuntimeError(f"中证官网 {code} 数据经交易日清洗后为空，疑似接口异常")
     return out
 
 # ---------- 全历史本地缓存 + 增量取数 ----------
@@ -99,8 +280,23 @@ def save_cache(path, bars):
         json.dump(bars, f, ensure_ascii=False)
 
 def get_index_cached(code, path):
-    """全历史缓存 + 增量拉取缺口(缓存次日~今天)，合并去重后写回。
-    返回 [{date: date对象, close, peg}] 升序。首跑无缓存时全量拉取。"""
+    """全历史缓存 + 增量拉取缺口(缓存次日~今天)，合并去重、清洗交易日/幽灵行后写回。
+    返回 [{date: date对象, close, peg}] 升序。首跑无缓存时全量拉取。
+
+    注意：清洗同时作用于「存量缓存」与「新拉数据」。历史缓存中若已混入幽灵交易日，
+    也会在此被剔除并回写磁盘，无需手工清理缓存文件。
+    """
+    def _clean(rows):
+        obj = [{"date": datetime.date.fromisoformat(r["date"]) if isinstance(r["date"], str) else r["date"],
+                "close": r["close"], "peg": r.get("peg")} for r in rows]
+        obj, issues = sanitize_bars(code, obj)
+        report_quality(code, issues)
+        if not obj:
+            raise RuntimeError(f"{code} 数据经交易日清洗后为空，疑似接口异常")
+        save_cache(path, [{"date": o["date"].isoformat(), "close": o["close"],
+                           "peg": o.get("peg")} for o in obj])
+        return obj
+
     cached = load_cache(path)
     # 防御：缓存日期必须严格升序且无重复，否则视为损坏、全量重拉(避免静默错位)
     if cached:
@@ -113,24 +309,22 @@ def get_index_cached(code, path):
         last_dt = datetime.date.fromisoformat(cached[-1]["date"])
         if last_dt >= datetime.date.today():
             print(f"      {code} 缓存已含最新日({cached[-1]['date']}), 直接复用 bars={len(cached)}")
-            return [{"date": datetime.date.fromisoformat(c["date"]),
-                     "close": c["close"], "peg": c.get("peg")} for c in cached]
+            return _clean(cached)
         start = (last_dt + datetime.timedelta(days=1)).strftime("%Y%m%d")
         mode = f"增量({cached[-1]['date']}次日→今天)"
     new_bars = fetch_index(code, start=start, allow_empty=True)
     if not new_bars:
         print(f"      {code} 官网在 {start} 后无新数据(当日未更新), 沿用缓存 bars={len(cached)}")
-        return [{"date": datetime.date.fromisoformat(c["date"]),
-                 "close": c["close"], "peg": c.get("peg")} for c in cached]
+        return _clean(cached)
     merged = {c["date"]: c for c in cached}
     for nb in new_bars:
         key = nb["date"].isoformat()
         merged[key] = {"date": key, "close": nb["close"], "peg": nb["peg"]}
     bars = sorted(merged.values(), key=lambda x: x["date"])
-    save_cache(path, bars)
-    print(f"      {code} {mode} 拉 {len(new_bars)} 日 → 缓存 {len(bars)} 日 ({bars[0]['date']}~{bars[-1]['date']})")
-    return [{"date": datetime.date.fromisoformat(x["date"]),
-             "close": x["close"], "peg": x.get("peg")} for x in bars]
+    obj = _clean(bars)
+    print(f"      {code} {mode} 拉 {len(new_bars)} 日 → 清洗后缓存 {len(obj)} 日 "
+          f"({obj[0]['date']}~{obj[-1]['date']})")
+    return obj
 
 def fetch_indicator():
     """官网每日更新的指数估值指标文件(.xls)：返回按日期升序的
@@ -270,11 +464,108 @@ def year_ticks(dates, i_min, i_max, max_ticks=10):
         ticks = ticks[::step]
     return ticks
 
+def svg_loglog_trend(dates, closes, i0, i1,
+                     title="中证红利全收益指数 长期趋势（对数-对数 · 二阶拟合）",
+                     width=880, height=380):
+    """对数-对数趋势：ln(P)=c0+c1·ln(年)+c2·ln²(年)，价格取对数轴，叠加 ±1.5σ 残差带。
+    说明：指数为复利增长，log-log 空间下真实趋势是曲线，故用 ln(年) 的二阶拟合；
+    一阶(幂律)直线会穿中段、漏首尾(初始值塌陷)。
+    带为 ±1.5×残差σ，是「单日观测」的散布范围(残差带)，非趋势线的置信区间——标注已按此口径。"""
+    idx = list(range(i0, i1 + 1))
+    if len(idx) < 4:
+        return ""
+    d0 = dates[i0]
+    # 自变量：自 i0 起算的年数(+1，避免 ln(0))
+    t = [(dates[i] - d0).days / 365.25 + 1.0 for i in idx]
+    lt = [math.log(v) for v in t]
+    lnP = [math.log(closes[i]) for i in idx]
+    n = len(lt)
+    # 最小二乘二次拟合 lnP = c0 + c1*lt + c2*lt^2 (正规方程 3x3)
+    s = [sum(lt), sum(x * x for x in lt), sum(x ** 3 for x in lt), sum(x ** 4 for x in lt)]
+    r_ = [sum(lnP), sum(lt[i] * lnP[i] for i in range(n)), sum(lt[i] ** 2 * lnP[i] for i in range(n))]
+    m = [[n, s[0], s[1]], [s[0], s[1], s[2]], [s[1], s[2], s[3]]]
+    # 高斯消元
+    A = [row[:] + [r_[k]] for k, row in enumerate(m)]
+    for col in range(3):
+        piv = max(range(col, 3), key=lambda rr: abs(A[rr][col]))
+        A[col], A[piv] = A[piv], A[col]
+        for rr in range(col + 1, 3):
+            f = A[rr][col] / A[col][col]
+            for cc in range(col, 4):
+                A[rr][cc] -= f * A[col][cc]
+    c = [0.0, 0.0, 0.0]
+    for rr in (2, 1, 0):
+        c[rr] = (A[rr][3] - sum(A[rr][cc] * c[cc] for cc in range(rr + 1, 3))) / A[rr][rr]
+    c0, c1, c2 = c
+    fit_ln = [c0 + c1 * lt[i] + c2 * lt[i] ** 2 for i in range(n)]
+    resid = [lnP[i] - fit_ln[i] for i in range(n)]
+    sigma = math.sqrt(sum(x * x for x in resid) / (n - 1))
+    mean_y = sum(lnP) / n
+    ss_tot = sum((v - mean_y) ** 2 for v in lnP)
+    R2 = 1 - sum(x * x for x in resid) / ss_tot if ss_tot else 0.0
+    fit = [math.exp(v) for v in fit_ln]
+    up = [math.exp(v + 1.5 * sigma) for v in fit_ln]
+    lo = [math.exp(v - 1.5 * sigma) for v in fit_ln]
+    cur = closes[idx[-1]]
+    dev = (cur / fit[-1] - 1) * 100
+    in_band = lo[-1] <= cur <= up[-1]
+    band_half = (math.exp(1.5 * sigma) - 1) * 100
+
+    L, R, T, B = 60, 18, 40, 34
+    pw, ph = width - L - R, height - T - B
+    ys_all = [closes[i] for i in idx] + up + lo
+    lmin = math.log10(min(ys_all) * 0.97); lmax = math.log10(max(ys_all) * 1.03)
+
+    def mx(i): return L + (i - i0) / (i1 - i0) * pw if i1 > i0 else L
+    def my(v): return T + (1 - (math.log10(v) - lmin) / (lmax - lmin)) * ph
+
+    yt = []
+    for e_ in range(int(math.floor(lmin)), int(math.ceil(lmax)) + 1):
+        for m_ in (1, 2, 5):
+            val = m_ * 10 ** e_
+            if lmin <= math.log10(val) <= lmax:
+                yt.append(val)
+
+    sign = "+" if c2 >= 0 else "−"
+    sub = (f"ln(P)={c0:.3f}{c1:+.3f}·ln(年){sign}{abs(c2):.3f}·ln²(年) ｜ R²={R2:.3f} ｜ "
+           f"当前 {cur:,.0f} 偏离拟合 {dev:+.1f}%（{'带内' if in_band else '带外'}）｜ ±1.5σ 残差带半宽≈{band_half:.1f}%")
+    svg = [f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,Segoe UI,Arial,sans-serif">']
+    svg.append(f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>')
+    svg.append(f'<text x="{L}" y="18" font-size="14" font-weight="600" fill="#1f2937">{title}</text>')
+    svg.append(f'<text x="{L}" y="33" font-size="11.5" fill="#6b7280">{sub}</text>')
+    for v in yt:
+        yy = my(v)
+        svg.append(f'<line x1="{L}" y1="{yy:.1f}" x2="{width-R}" y2="{yy:.1f}" stroke="#eef0f3" stroke-width="1"/>')
+        svg.append(f'<text x="{L-6}" y="{yy+4:.1f}" font-size="11" fill="#9ca3af" text-anchor="end">{v:,.0f}</text>')
+    for tx, tlab in year_ticks(dates, i0, i1, max_ticks=11):
+        xx = mx(tx)
+        svg.append(f'<line x1="{xx:.1f}" y1="{T}" x2="{xx:.1f}" y2="{T+ph:.1f}" stroke="#eef0f3" stroke-width="1"/>')
+        anchor = "middle"
+        if xx < L + 16: anchor = "start"
+        elif xx > width - R - 16: anchor = "end"
+        svg.append(f'<text x="{xx:.1f}" y="{height-12}" font-size="11" fill="#9ca3af" text-anchor="{anchor}">{tlab}</text>')
+    band_pts = " ".join(f"{mx(i):.1f},{my(up[k]):.1f}" for k, i in enumerate(idx)) + " " + \
+               " ".join(f"{mx(i):.1f},{my(lo[k]):.1f}" for k, i in enumerate(reversed(idx)))
+    svg.append(f'<polygon points="{band_pts}" fill="#d97706" fill-opacity="0.10"/>')
+    fit_d = " ".join(f"{'M' if k == 0 else 'L'}{mx(i):.1f},{my(fit[k]):.1f}" for k, i in enumerate(idx))
+    svg.append(f'<path d="{fit_d}" fill="none" stroke="#d97706" stroke-width="1.6" stroke-dasharray="5 3"/>')
+    act_d = " ".join(f"{'M' if k == 0 else 'L'}{mx(i):.1f},{my(closes[i]):.1f}" for k, i in enumerate(idx))
+    svg.append(f'<path d="{act_d}" fill="none" stroke="#2563eb" stroke-width="1.8"/>')
+    svg.append(f'<rect x="{L+8}" y="{T+2}" width="12" height="12" rx="2" fill="#2563eb"/><text x="{L+26}" y="{T+12}" font-size="11.5" fill="#374151">实际收盘</text>')
+    svg.append(f'<rect x="{L+110}" y="{T+2}" width="12" height="12" rx="2" fill="#d97706"/><text x="{L+128}" y="{T+12}" font-size="11.5" fill="#374151">对数-对数二阶拟合</text>')
+    svg.append(f'<rect x="{L+238}" y="{T+2}" width="12" height="12" rx="2" fill="#d97706" fill-opacity="0.25"/><text x="{L+256}" y="{T+12}" font-size="11.5" fill="#374151">±1.5σ 残差带（单日观测范围）</text>')
+    svg.append('</svg>')
+    return "\n".join(svg)
+
+
+
 # ================= 主流程 =================
 print(f"[1/4] 取数 {PRIMARY_CODE} {PRIMARY_NAME} (缓存增量) ...")
 p = get_index_cached(PRIMARY_CODE, CACHE_P)
+check_tail(p, f"{PRIMARY_CODE} {PRIMARY_NAME}")
 print(f"[2/4] 取数 {BENCH_CODE} {BENCH_NAME} (缓存增量) ...")
 b = get_index_cached(BENCH_CODE, CACHE_B)
+check_tail(b, f"{BENCH_CODE} {BENCH_NAME}")
 print(f"[2b] 股息率指标文件(官网每日更新, {INDICATOR_CODE}) ...")
 ind = fetch_indicator()
 ind_last = ind[-1] if ind else None
@@ -292,17 +583,29 @@ ma = {w: sma_series(p_close, w) for w in MAS}
 last_close = p_close[-1]
 last_date = p_dates[-1]
 
-# 40日收益差值（按日期对齐）
+# 40日收益差值（在主标的与基准的「交易日交集」上按 40 个交易日滚动）
+# 关键点：先取交集、再按下标滚动。若沿用旧的 p_close[i - RET_WINDOW]，
+# 任一源缺失或多余一个交易日(例如缓存混入幽灵行 2026-08-29)都会让窗口整体错位，
+# 且不抛错、不告警，属静默污染——本次故障即由此产生。
+common_dates = sorted(set(p_dates) & set(b_close.keys()))
+_bad = sorted(set(p_dates) ^ set(b_close.keys()))
+if _bad:
+    print(f"      [数据质量] 主标的与基准交易日不一致共 {len(_bad)} 天，"
+          f"已按交集({len(common_dates)} 天)计算，不影响窗口对齐。"
+          f"不一致日期：{_bad[0]} ~ {_bad[-1]}")
+pos_in_p = {d: i for i, d in enumerate(p_dates)}
+p_close_by_date = {d: p_close[i] for i, d in enumerate(p_dates)}
 diff_series = []; ret40_p = []; ret40_b = []
-for i in range(RET_WINDOW, len(p)):
-    d = p_dates[i]
-    bc = b_close.get(d)
-    if bc is None or b_close.get(p_dates[i - RET_WINDOW]) is None:
-        continue
-    rp = p_close[i] / p_close[i - RET_WINDOW] - 1
-    rb = bc / b_close[p_dates[i - RET_WINDOW]] - 1
+for k in range(RET_WINDOW, len(common_dates)):
+    d0, d1 = common_dates[k - RET_WINDOW], common_dates[k]
+    rp = p_close_by_date[d1] / p_close_by_date[d0] - 1
+    rb = b_close[d1] / b_close[d0] - 1
     diff = rp - rb
+    i = pos_in_p[d1]
     diff_series.append((i, diff)); ret40_p.append((i, rp)); ret40_b.append((i, rb))
+if not diff_series:
+    raise RuntimeError("40日收益差序列为空：主标的与基准的交易日交集不足 "
+                       f"{RET_WINDOW + 1} 天，请检查数据源")
 cur_rp = ret40_p[-1][1]; cur_rb = ret40_b[-1][1]; cur_diff = diff_series[-1][1]
 diff_pct = pct_rank([x[1] for x in diff_series], cur_diff)
 
@@ -395,6 +698,10 @@ c2 = [{"name": "40日收益差值(%)", "color": "#7c3aed",
 svg2 = svg_line_chart(f"{PRIMARY_NAME} − {BENCH_NAME} 40日收益差值(%)", c2, zero_line=True, y_precision=1,
                       x_ticks=year_ticks(p_dates, diff_series[0][0], diff_series[-1][0], max_ticks=9))
 
+# 图3 长期趋势（对数-对数二阶拟合，自2016年起，价格对数轴 + ±1.5σ 残差带）
+i0_16 = next((i for i, d in enumerate(p_dates) if d >= datetime.date(2016, 1, 1)), 0)
+svg3 = svg_loglog_trend(p_dates, p_close, i0_16, len(p) - 1)
+
 print(f"[5] 生成报告 ...")
 
 def fmt_pct(x): return ("—" if x is None else f"{x*100:+.2f}%")
@@ -464,7 +771,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
   <h1>红利指数低频提醒</h1>
   <div class="sub">主标的：{PRIMARY_CODE} {PRIMARY_NAME} ｜ 基准：{BENCH_CODE} {BENCH_NAME} ｜ 生成日期：{last_date}</div>
 </div>
-<div class="ok"><b>说明：</b>主标的 <b>H00922 中证红利全收益指数</b>（含分红再投资），基准 <b>000985 中证全指</b>。全部数据来自中证指数官网（免费、无需授权，含 2000 年至今完整历史）。</div>
+<div class="ok"><b>说明：</b>主标的 <b>H00922 中证红利全收益指数</b>（含分红再投资），基准 <b>H00985 中证全指全收益</b>（同为全收益口径，两侧可比）。全部数据来自中证指数官网（免费、无需授权，含 2000 年至今完整历史）。</div>
 
 <div class="grid">
   <div class="card"><div class="k">最新收盘 ({last_date})</div><div class="v">{last_close:.2f}</div><div class="d">全收益口径</div></div>
@@ -490,6 +797,14 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 
 <div class="chart">{svg1}</div>
 <div class="chart">{svg2}</div>
+<section><h2>长期趋势（对数-对数 · 二阶拟合）</h2>
+<div class="refbox">
+  <div class="reftitle">模型说明</div>
+  <p>ln(P) 对 ln(年) 做<b>二阶拟合</b>——指数为复利增长，log-log 空间下真实趋势是曲线，一阶幂律直线会穿中段、漏首尾（初始值塌陷），二阶项让曲线同时贴住起点与当前。</p>
+  <p>图中带为 <b>±1.5×残差σ</b>，是「单日观测」相对拟合线的散布范围（残差带），而非趋势线本身的置信区间；残差 σ(ln) 与 R² 见统计行。</p>
+</div>
+<div class="chart">{svg3}</div>
+</section>
 
 <section><h2>近五年"收盘价低于 MA500"区间汇总</h2>
 <div class="refbox">
