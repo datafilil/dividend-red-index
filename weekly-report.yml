@@ -1,0 +1,61 @@
+name: 红利指数日报
+
+# 触发方式：每周一至周五 19:28 北京时间自动(收盘后取数) + 支持手动触发
+on:
+  schedule:
+    # GitHub Actions cron 用 UTC；北京时间 19:28 = UTC 11:28；周一到周五 = 1-5 (0=周日)
+    # 非整点档位，避开 GitHub 调度器整点(尤其 0:00/12:00 UTC)高负载，基本准点触发；
+    # 且晚于中证官网当日数据更新(约 18:00 后)，可取到当日收盘与估值指标。
+    - cron: '28 11 * * 1-5'
+  workflow_dispatch:  # 仓库 Actions 页可手动点 "Run workflow" 触发
+
+# 自动提交需要写权限
+permissions:
+  contents: write
+
+# 同一时间只跑一个，避免并发提交冲突
+concurrency:
+  group: dividend-report
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout 仓库（含 cache 缓存种子）
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖（xlrd）
+        run: pip install -r requirements.txt
+
+      - name: 运行取数与报告生成脚本
+        run: python dividend_index_reminder.py
+
+      - name: 同步报告到 Pages 根目录
+        run: |
+          cp dividend_index_report.html index.html
+          mkdir -p site
+          cp dividend_index_report.html site/index.html
+          echo "--- 报告产物 ---"
+          ls -la index.html site/index.html
+
+      - name: 提交更新（缓存增量 + 历史快照 + 报告 + site）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "本轮无变更（官网未更新），跳过提交"
+          else
+            git commit -m "chore: 红利指数周报 $(date -u +%Y-%m-%d)"
+            # 拉取远程最新提交并 rebase(避免外部 PUT 推送与本地 commit 冲突导致 push 被拒)
+            git pull --rebase "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ${GITHUB_REF_NAME}
+            git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${GITHUB_REF_NAME}
+            echo "已提交并推送"
+          fi
