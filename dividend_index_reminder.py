@@ -467,10 +467,10 @@ def year_ticks(dates, i_min, i_max, max_ticks=10):
 def svg_loglog_trend(dates, closes, i0, i1,
                      title="中证红利全收益指数 长期趋势（对数-对数 · 二阶拟合）",
                      width=880, height=380):
-    """对数-对数趋势：ln(P)=c0+c1·ln(年)+c2·ln²(年)，价格取对数轴，叠加 ±1.5σ 残差带。
-    说明：指数为复利增长，log-log 空间下真实趋势是曲线，故用 ln(年) 的二阶拟合；
-    一阶(幂律)直线会穿中段、漏首尾(初始值塌陷)。
-    带为 ±1.5×残差σ，是「单日观测」的散布范围(残差带)，非趋势线的置信区间——标注已按此口径。"""
+    """对数-对数趋势：ln(P)=c0+c1·ln(年)+c2·ln²(年)，价格取对数轴，叠加 ±1.5×SE 置信带。
+    置信带 = 拟合均值 ± 1.5×SE，SE(x)=σ·sqrt(h)，h=x₀ᵀ(XᵀX)⁻¹x₀ 为杠杆值(3x3 求逆)。
+    衡量「趋势线本身」的估计不确定度，中部最窄、两端外扩；
+    不是单日观测的散布范围(那需要 fit±1.5σ，两者不可混标)。"""
     idx = list(range(i0, i1 + 1))
     if len(idx) < 4:
         return ""
@@ -503,13 +503,33 @@ def svg_loglog_trend(dates, closes, i0, i1,
     mean_y = sum(lnP) / n
     ss_tot = sum((v - mean_y) ** 2 for v in lnP)
     R2 = 1 - sum(x * x for x in resid) / ss_tot if ss_tot else 0.0
+
+    # 置信带 = 拟合均值 ± 1.5×SE，SE(x)=σ·sqrt(h)，h=x₀ᵀ(XᵀX)⁻¹x₀ 为杠杆值。
+    # XᵀX 即上面的正规方程矩阵 m；3x3 对称矩阵用伴随矩阵法求逆。
+    det = (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+         - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+         + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+    Minv = [[0.0] * 3 for _ in range(3)]
+    Minv[0][0] = (m[1][1] * m[2][2] - m[1][2] * m[2][1]) / det
+    Minv[0][1] = Minv[1][0] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) / det
+    Minv[0][2] = Minv[2][0] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) / det
+    Minv[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) / det
+    Minv[1][2] = Minv[2][1] = (m[0][2] * m[1][0] - m[0][0] * m[1][2]) / det
+    Minv[2][2] = (m[0][0] * m[1][1] - m[0][1] * m[1][0]) / det
+
+    def _lev(xv):
+        v = [1.0, xv, xv * xv]
+        Mv = [sum(Minv[k][j] * v[j] for j in range(3)) for k in range(3)]
+        return max(sum(v[k] * Mv[k] for k in range(3)), 0.0)
+
     fit = [math.exp(v) for v in fit_ln]
-    up = [math.exp(v + 1.5 * sigma) for v in fit_ln]
-    lo = [math.exp(v - 1.5 * sigma) for v in fit_ln]
+    se = [sigma * math.sqrt(_lev(xv)) for xv in lt]
+    up = [math.exp(fit_ln[i] + 1.5 * se[i]) for i in range(n)]
+    lo = [math.exp(fit_ln[i] - 1.5 * se[i]) for i in range(n)]
     cur = closes[idx[-1]]
     dev = (cur / fit[-1] - 1) * 100
     in_band = lo[-1] <= cur <= up[-1]
-    band_half = (math.exp(1.5 * sigma) - 1) * 100
+    band_half = (math.exp(1.5 * se[-1]) - 1) * 100
 
     L, R, T, B = 60, 18, 40, 34
     pw, ph = width - L - R, height - T - B
@@ -527,8 +547,8 @@ def svg_loglog_trend(dates, closes, i0, i1,
                 yt.append(val)
 
     sign = "+" if c2 >= 0 else "−"
-    sub = (f"ln(P)={c0:.3f}{c1:+.3f}·ln(年){sign}{abs(c2):.3f}·ln²(年) ｜ R²={R2:.3f} ｜ "
-           f"当前 {cur:,.0f} 偏离拟合 {dev:+.1f}%（{'带内' if in_band else '带外'}）｜ ±1.5σ 残差带半宽≈{band_half:.1f}%")
+    sub = (f"ln(P)={c0:.3f}{c1:+.3f}·ln(年){sign}{abs(c2):.3f}·ln²(年) ｜ R²={R2:.3f} ｜ σ(ln)={sigma:.4f} ｜ "
+           f"当前 {cur:,.0f} 偏离拟合 {dev:+.1f}%（{'带内' if in_band else '带外'}）｜ 置信带(±1.5×SE)当前半宽≈{band_half:.2f}%")
     svg = [f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,Segoe UI,Arial,sans-serif">']
     svg.append(f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff"/>')
     svg.append(f'<text x="{L}" y="18" font-size="14" font-weight="600" fill="#1f2937">{title}</text>')
@@ -553,7 +573,7 @@ def svg_loglog_trend(dates, closes, i0, i1,
     svg.append(f'<path d="{act_d}" fill="none" stroke="#2563eb" stroke-width="1.8"/>')
     svg.append(f'<rect x="{L+8}" y="{T+2}" width="12" height="12" rx="2" fill="#2563eb"/><text x="{L+26}" y="{T+12}" font-size="11.5" fill="#374151">实际收盘</text>')
     svg.append(f'<rect x="{L+110}" y="{T+2}" width="12" height="12" rx="2" fill="#d97706"/><text x="{L+128}" y="{T+12}" font-size="11.5" fill="#374151">对数-对数二阶拟合</text>')
-    svg.append(f'<rect x="{L+238}" y="{T+2}" width="12" height="12" rx="2" fill="#d97706" fill-opacity="0.25"/><text x="{L+256}" y="{T+12}" font-size="11.5" fill="#374151">±1.5σ 残差带（单日观测范围）</text>')
+    svg.append(f'<rect x="{L+238}" y="{T+2}" width="12" height="12" rx="2" fill="#d97706" fill-opacity="0.25"/><text x="{L+256}" y="{T+12}" font-size="11.5" fill="#374151">置信带（拟合均值 ±1.5×SE）</text>')
     svg.append('</svg>')
     return "\n".join(svg)
 
@@ -698,7 +718,7 @@ c2 = [{"name": "40日收益差值(%)", "color": "#7c3aed",
 svg2 = svg_line_chart(f"{PRIMARY_NAME} − {BENCH_NAME} 40日收益差值(%)", c2, zero_line=True, y_precision=1,
                       x_ticks=year_ticks(p_dates, diff_series[0][0], diff_series[-1][0], max_ticks=9))
 
-# 图3 长期趋势（对数-对数二阶拟合，自2016年起，价格对数轴 + ±1.5σ 残差带）
+# 图3 长期趋势（对数-对数二阶拟合，自2016年起，价格对数轴 + ±1.5×SE 置信带）
 i0_16 = next((i for i, d in enumerate(p_dates) if d >= datetime.date(2016, 1, 1)), 0)
 svg3 = svg_loglog_trend(p_dates, p_close, i0_16, len(p) - 1)
 
@@ -801,7 +821,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 <div class="refbox">
   <div class="reftitle">模型说明</div>
   <p>ln(P) 对 ln(年) 做<b>二阶拟合</b>——指数为复利增长，log-log 空间下真实趋势是曲线，一阶幂律直线会穿中段、漏首尾（初始值塌陷），二阶项让曲线同时贴住起点与当前。</p>
-  <p>图中带为 <b>±1.5×残差σ</b>，是「单日观测」相对拟合线的散布范围（残差带），而非趋势线本身的置信区间；残差 σ(ln) 与 R² 见统计行。</p>
+  <p>图中置信带为拟合趋势线的 <b>±1.5×标准误(SE)</b> 区间——衡量「趋势线本身」的估计不确定度，中部最窄、两端外扩（二次拟合按杠杆值 h=x₀ᵀ(XᵀX)⁻¹x₀ 计算）。它不是单日观测的散布范围（残差 σ(ln) 见统计行）。</p>
 </div>
 <div class="chart">{svg3}</div>
 </section>
