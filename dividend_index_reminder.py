@@ -40,7 +40,6 @@ CONS_URL = ("https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads"
 
 MAS = [250, 350, 500]
 RET_WINDOW = 40
-HISTORY_FILE = os.path.join(HERE, "dividend_index_history.json")
 REPORT_FILE  = os.path.join(HERE, "dividend_index_report.html")
 SITE_DIR     = os.path.join(HERE, "site")   # 发布目录(复制为 index.html 供部署)
 CACHE_DIR    = os.path.join(HERE, "cache")  # 全历史日线本地缓存(增量取数用)
@@ -1042,22 +1041,6 @@ for w in MAS:
     bl = sum(1 for (i, dt, cl) in win if ma[w][i] is not None and cl < ma[w][i])
     below_rates[w] = bl / len(win) * 100 if win else 0
 
-# 历史快照累计
-history = []
-if os.path.exists(HISTORY_FILE):
-    try: history = json.load(open(HISTORY_FILE, encoding="utf-8"))
-    except Exception: history = []
-snap = {"date": last_date.isoformat(),
-        "close": round(last_close, 3),
-        "ma250": round(ma[250][-1], 3), "ma350": round(ma[350][-1], 3), "ma500": round(ma[500][-1], 3),
-        "ret40_p": round(cur_rp*100, 3), "ret40_b": round(cur_rb*100, 3),
-        "diff": round(cur_diff*100, 3), "pe": round(cur_peg, 2) if cur_peg else None,
-        "pe_pct": round(peg_pct, 1) if peg_pct else None,
-        "dy1": (ind_last["dp1"] if ind_last else None),
-        "dy2": (ind_last["dp2"] if ind_last else None)}
-history = [h for h in history if h.get("date") != snap["date"]]
-history.append(snap); history.sort(key=lambda x: x["date"])
-json.dump(history, open(HISTORY_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 print(f"[4/4] 近五年破MA500占比={below_rate:.1f}% ({len(episodes)}段)")
 
 # ================= 信号 =================
@@ -1095,13 +1078,6 @@ print(f"[5] 生成报告 ...")
 
 def fmt_pct(x): return ("—" if x is None else f"{x*100:+.2f}%")
 def fmt_num(x): return ("—" if x is None else f"{x:.2f}")
-
-hist_rows = ""
-for h in history[-12:]:
-    hist_rows += (f"<tr><td>{h['date']}</td><td>{h['close']}</td>"
-                  f"<td>{h.get('ma250')}</td><td>{h.get('ma350')}</td><td>{h.get('ma500')}</td>"
-                  f"<td class='{'pos' if (h.get('diff') or 0)>=0 else 'neg'}'>{h.get('diff')}</td>"
-                  f"<td>{h.get('pe_pct')}</td><td>{h.get('dy2') if h.get('dy2') is not None else '—'}</td></tr>")
 
 ep_rows = ""
 for e in ep_stats[:15]:
@@ -1337,10 +1313,6 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 </div></section>
 
 {cons_html}
-
-<section><h2>历史快照（最近 {min(12,len(history))} 次）</h2>
-<table><thead><tr><th>日期</th><th>收盘</th><th>MA250</th><th>MA350</th><th>MA500</th><th>40日差值%</th><th>PE分位%</th><th>股息率%</th></tr></thead>
-<tbody>{hist_rows}</tbody></table></section>
 
 <div class="note">{DATA_NOTE}<br>本报告由自动化脚本生成，仅供研究与跟踪参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。</div>
 </div></body></html>"""
