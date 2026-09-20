@@ -999,6 +999,10 @@ diff_pct = pct_rank([x[1] for x in diff_series], cur_diff)
 peg_series = [x["peg"] for x in p if x["peg"] is not None]
 cur_peg = p[-1]["peg"]
 peg_pct = pct_rank(peg_series, cur_peg) if cur_peg is not None else None
+# EP(盈利收益率)=1/滚动PE, 历史分位(越高越便宜)
+ep_series = [1.0 / x for x in peg_series if x and x > 0]
+cur_ep = (1.0 / cur_peg) if (cur_peg and cur_peg > 0) else None
+ep_pct = pct_rank(ep_series, cur_ep) if cur_ep is not None else None
 
 print(f"[3/4] 计算完成。收盘={last_close:.2f} MA="
       f"{ma[250][-1]:.2f}/{ma[350][-1]:.2f}/{ma[500][-1]:.2f} 40日差值={cur_diff*100:.2f}% PE分位={peg_pct:.0f}%")
@@ -1115,6 +1119,36 @@ wavg_dy = None
 if _dy_have:
     _wsum = sum(c["weight"] for c in _dy_have)
     wavg_dy = sum(c["weight"] * c["dy"] for c in _dy_have) / _wsum if _wsum else None
+
+# ---------- 估值温度计(中证官网原生四指标) ----------
+# 说明：csindex 原生仅稳定提供 滚动PE(TTM, perf接口全历史) + 静态PE/股息率(每日指标文件)。
+# 市净率 PB / 净资产收益率 ROE 不在 csindex 原生数据内(指标文件仅 10 列: PE1/PE2/DP1/DP2)，
+# 故本期温度计交付 4 个官网原生指标；PB/ROE 待确认可靠外部源后补。
+def _lvl_color(cheapness):
+    if cheapness >= 67: return "#16a34a"   # 便宜 绿
+    if cheapness <= 33: return "#dc2626"   # 贵 红
+    return "#d97706"                        # 中性 橙
+def _thermo_row(name, value, pct, cheap_is_low=True, note=""):
+    if pct is None:
+        return (f"<tr><td>{name}</td><td><b>{value}</b></td>"
+                f"<td><span style='color:#64748b'>当前值 · 无历史分位</span></td>"
+                f"<td style='color:#64748b'>{note or '—'}</td></tr>")
+    cheapness = (100 - pct) if cheap_is_low else pct
+    col = _lvl_color(cheapness)
+    bar = (f"<div style='background:#eef2f7;border-radius:4px;height:12px;width:150px;display:inline-block;vertical-align:middle'>"
+           f"<div style='background:{col};height:12px;width:{pct:.0f}%;border-radius:4px'></div></div> "
+           f"<b style='color:{col}'>{pct:.0f}%</b>")
+    lvl = "便宜" if cheapness >= 67 else ("贵" if cheapness <= 33 else "中性")
+    return f"<tr><td>{name}</td><td><b>{value}</b></td><td>{bar}</td><td style='color:{col}'>{lvl}</td></tr>"
+
+_pei = (f"{ind_last['pe1']:.2f}" if ind_last and ind_last.get('pe1') is not None else "—")
+_dyi = (f"{ind_last['dp2']:.2f}%" if ind_last and ind_last.get('dp2') is not None else "—")
+_epv = (f"{cur_ep*100:.2f}%" if cur_ep is not None else "—")
+thermo_rows = ""
+thermo_rows += _thermo_row("滚动PE (TTM)", (f"{cur_peg:.2f}" if cur_peg is not None else "—"), peg_pct, True, "中证官网 perf · 2016起全历史")
+thermo_rows += _thermo_row("盈利收益率 EP", _epv, ep_pct, False, "=1/滚动PE · 同序列")
+thermo_rows += _thermo_row("静态PE", _pei, None, True, "官网指标文件(当日)")
+thermo_rows += _thermo_row("股息率 (D/P2)", _dyi, None, True, "参考 >5% 为高股息")
 # 剔除候选：按股息率(最近会计年度)升序取最低20只(公告惯例20进20出；缓冲区硬条件为"过去一年现金股息率>0.5%"，此处为参照口径)
 cand = sorted(_dy_have, key=lambda x: x["dy"])[:20]
 # 纳入候选：全市场按官方规则近似筛选(缓存7天,失败降级旧缓存),与剔除候选对称的参照
@@ -1285,6 +1319,15 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
   <div class="card"><div class="k">股息率(计算用股本 D/P2)</div><div class="v">{('—' if not ind_last or ind_last['dp2'] is None else f"{ind_last['dp2']:.2f}%")}</div><div class="d">官网指标文件(000922)</div></div>
   <div class="card"><div class="k">近5年破MA500占比</div><div class="v">{below_rate:.1f}%</div><div class="d">共 {len(episodes)} 段</div></div>
 </div>
+
+<section><h2>中证红利估值温度计（官网原生四指标）</h2>
+<div class="refbox">
+  <div class="reftitle">口径与来源</div>
+  <p>滚动PE(TTM) 与 EP(盈利收益率=1/滚动PE) 的历史分位由<b>中证官网全收益行情(perf 接口, 2016 起)</b>自算；静态PE / 股息率 取官网每日指数估值指标文件(000922)。<b>注：中证官网原生数据仅含 PE(静态/滚动) 与 股息率（指标文件共 10 列：PE1/PE2/D/P1/D/P2），不提供市净率 PB 与 净资产收益率 ROE</b>，故本期温度计交付上述 4 个官网原生指标；PB/ROE 待接入可靠外部源后补充。滚动PE、EP 有真实历史分位；静态PE、股息率为<b>当前值</b>（官网不公开其历史序列，仅标参考水位）。分位含义：绿=便宜 / 橙=中性 / 红=贵（越低越便宜）。</p>
+</div>
+<table><thead><tr><th>指标</th><th>当前值</th><th>历史分位 / 参考</th><th>水位</th></tr></thead>
+<tbody>{thermo_rows}</tbody></table>
+</section>
 
 <div class="chart">{svg1}</div>
 <div class="chart">{svg2}</div>
