@@ -21,7 +21,7 @@
   - 全部为离线自包含 HTML(SVG 图表,无外部依赖)。输出注明来源与"非投资建议"。
 依赖：xlrd(解析官网指标 .xls, 已装于托管 Python；缺失时自动跳过股息率, 不中断主流程)
 """
-import os, sys, json, math, time, datetime, urllib.request, urllib.error
+import os, sys, json, math, re, time, datetime, urllib.request, urllib.error
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,6 +46,8 @@ CACHE_DIR    = os.path.join(HERE, "cache")  # 全历史日线本地缓存(增量
 CACHE_P      = os.path.join(CACHE_DIR, f"{PRIMARY_CODE.lower()}.json")
 CACHE_B      = os.path.join(CACHE_DIR, f"{BENCH_CODE}.json")
 CONS_CACHE   = os.path.join(CACHE_DIR, f"{INDICATOR_CODE}cons.json")  # 成分股缓存(取数失败降级用)
+WORKFLOW_FILE = os.path.join(HERE, "weekly-report.yml")        # Actions 调度配置(自动收敛时改写 cron)
+CAPTURE_STATE_FILE = os.path.join(HERE, "capture_state.json")  # 收敛锁: 记录已锁定 cron 与末次抓取日
 CSINDEX_PERF = "https://www.csindex.com.cn/csindex-home/perf/index-perf"
 DATA_NOTE = ("数据来源：中证指数有限公司官网 csindex.com.cn（指数表现接口 + 每日更新的指数估值指标文件），免费、无需授权。"
              "主标的 H00922 与基准 H00985 均为全收益口径(含分红再投资)，两侧可比。"
@@ -1327,5 +1329,51 @@ try:
     print("site  ->", os.path.join(SITE_DIR, "index.html"))
 except Exception as e:
     print(f"[提示] 发布目录同步失败(不影响本地报告): {e}")
+
+# ---------- 自动收敛: 轮询确认当日数据更新后, 把 cron 锁定到"安全下限"固定时刻(不再每10分重试) ----------
+# 安全下限 = 数据最坏延迟时刻 + 缓冲; 据官方数据延迟可能到 23:00, 故固定为北京 23:10(UTC 15:10)。
+# 若首日成功抓取时刻早于下限, 一律夹到下限; 若极晚(>23:50)则夹到 23:50 兜底。改此常量即可调下限。
+SAFE_FLOOR_BJ_H, SAFE_FLOOR_BJ_M = 23, 10
+
+def auto_collapse_cron():
+    # 仅在"当日数据已取到(last_date==今天)"且尚未锁定时触发; 否则继续每10分重试
+    state = {}
+    try:
+        if os.path.exists(CAPTURE_STATE_FILE):
+            state = json.load(open(CAPTURE_STATE_FILE, encoding="utf-8"))
+    except Exception:
+        state = {}
+    if state.get("locked_cron"):
+        return  # 已锁定, 不再改写
+    today = datetime.date.today()
+    if last_date != today:
+        return  # 当日数据尚未到(仍为上一交易日), 维持重试窗口
+    # 当日数据已取到 -> 锁定到"安全下限"时刻: 候选=成功时刻(UTC)+10分, 但不早于安全下限、不晚于23:50
+    t = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)
+    hh, mm = t.hour, t.minute
+    bj_h, bj_m = (hh + 8) % 24, mm
+    if (bj_h, bj_m) < (SAFE_FLOOR_BJ_H, SAFE_FLOOR_BJ_M):
+        bj_h, bj_m = SAFE_FLOOR_BJ_H, SAFE_FLOOR_BJ_M   # 不得低于安全下限(避免首日异常早到锁太早)
+    if bj_h > 23 or (bj_h == 23 and bj_m > 50):         # 极晚抓取兜底, 避免跨午夜/超时
+        bj_h, bj_m = 23, 50
+    utc_h = (bj_h - 8) % 24
+    locked = f"{bj_m:02d} {utc_h:02d} * * 1-5"
+    try:
+        yml = open(WORKFLOW_FILE, encoding="utf-8").read()
+        new_yml = re.sub(r"    - cron: '[^']*'\n    - cron: '[^']*'\n",
+                         f"    - cron: '{locked}'   # 自动收敛: 轮询确认当日数据后锁定到安全下限(北京{bj_h:02d}:{bj_m:02d})\n",
+                         yml)
+        if new_yml != yml:
+            open(WORKFLOW_FILE, "w", encoding="utf-8").write(new_yml)
+            print(f"[收敛] 已锁定 cron 为每日北京 {bj_h:02d}:{bj_m:02d} (UTC {utc_h:02d}:{bj_m:02d}), 不再每10分重试")
+        state["locked_cron"] = locked
+        state["locked_at_utc"] = t.isoformat()
+        state["safe_floor_bj"] = f"{SAFE_FLOOR_BJ_H:02d}:{SAFE_FLOOR_BJ_M:02d}"
+        state["last_captured_date"] = last_date.isoformat()
+        json.dump(state, open(CAPTURE_STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[提示] cron 自动收敛失败(不影响本次报告): {e}")
+
+auto_collapse_cron()
 
 print("DONE. report ->", REPORT_FILE)
