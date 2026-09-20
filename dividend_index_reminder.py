@@ -1287,12 +1287,13 @@ cons_html = f"""
 """
 
 def build_event_study_section():
-    """嵌入「指数纳入效应」紧凑段；读取 event_study_summary.json（半年度重算快照，不每日刷新）。"""
+    """嵌入「指数纳入效应」折叠段（默认收起，点击展开）；读取 event_study_summary.json（半年度重算快照，不每日刷新）。"""
     p = os.path.join(HERE, "event_study_summary.json")
     if not os.path.exists(p):
-        return ("<section><h2>指数纳入效应（可交易事件）</h2>"
+        return ("<details class='fold'><summary><span class='foldt'>指数纳入效应（可交易事件）</span>"
+                "<span class='folds'>点击展开 · 报告未生成</span></summary>"
                 "<div class='refbox'><p class='refnote'>纳入效应报告尚未生成（运行 "
-                "<code>python event_study.py</code> 生成 event_study_summary.json 后本段自动填充）。</p></div></section>")
+                "<code>python event_study.py</code> 生成 event_study_summary.json 后本段自动填充）。</p></div></details>")
     try:
         s = json.load(open(p, encoding="utf-8"))
     except Exception:
@@ -1308,7 +1309,8 @@ def build_event_study_section():
     ae = w.get("car_ae") or {}
     headline = (f"主调仓窗口[公告→生效] 均值 <b class='pos'>{ae.get('mean',0):+.2f}%</b> · "
                 f"胜率 <b>{ae.get('hit',0)}%</b> · 中位 {ae.get('median',0):+.2f}%（n={ae.get('n','—')}）")
-    return f"""<section><h2>指数纳入效应（可交易事件）</h2>
+    return f"""<details class='fold'><summary><span class='foldt'>指数纳入效应（可交易事件）</span>
+  <span class='folds'>点击展开 · {s.get('verdict','')} · 主调仓窗口均值 {ae.get('mean',0):+.2f}% / 胜率 {ae.get('hit',0)}%</span></summary>
 <div class="refbox">
   <div class="reftitle">结论：{s.get('verdict','')}</div>
   <p>{headline}。纳入效应源于指数基金被动调仓（公告→生效期间纯买入推动），属经典「指数效应」可交易窗口；完整 {s.get('n_events','?')} 次事件 / {s.get('n_resolved','?')} 只代码明细见 <code>event_study.html</code>。</p>
@@ -1321,7 +1323,7 @@ def build_event_study_section():
   {row('car20','[0,+20] 持有')}
   </tbody></table>
   <p class="refnote">数据生成于 {s.get('generated','')}；基准=红利指数(000922)自身，AR=个股−指数，CAR 为窗口累加。本段为半年度调整时重算的快照，非每日刷新。</p>
-</div></section>
+</div></details>
 """
 
 event_study_section = build_event_study_section()
@@ -1345,6 +1347,17 @@ body{{font-family:system-ui,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,san
   border-radius:8px;font-size:13px;color:#334155;line-height:1.7}}
 .reftitle{{font-weight:600;color:#0f172a;margin-bottom:8px}}
 .refnote{{color:#94a3b8;font-size:12px;margin-top:8px}}
+.fold{{margin:8px 24px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden}}
+.fold>summary{{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:13px 16px;background:#f8fafc;user-select:none}}
+.fold>summary::-webkit-details-marker{{display:none}}
+.fold>summary::before{{content:"\\25B8";color:#94a3b8;font-size:13px;transition:transform .15s ease;margin-right:2px}}
+.fold[open]>summary::before{{content:"\\25BE";transform:rotate(0deg)}}
+.fold>summary:hover{{background:#f1f5f9}}
+.foldt{{font-size:15px;font-weight:600;color:#0f172a}}
+.folds{{font-size:12px;color:#64748b;text-align:right;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.fold>summary>:not(.foldt):not(.folds){{display:none}}
+.fold .refbox{{margin:0;border:none;border-radius:0;background:#fff}}
 .grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 24px 8px}}
 .card{{background:#f9fafb;border:1px solid #eef0f3;border-radius:10px;padding:14px}}
 .card .k{{font-size:12px;color:#6b7280}}
