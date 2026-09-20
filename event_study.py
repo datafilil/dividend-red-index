@@ -313,6 +313,18 @@ def main():
         verdict = "可交易(公告买入→生效卖出)" if ae["mean"] > 1.0 and ae["hit"] >= 55 else \
                   ("效应偏弱/已被提前反映" if ae["mean"] <= 1.0 else "存在正向效应但胜率一般")
         print(f"  结论: {verdict}")
+    # 输出紧凑摘要 JSON(供主周报嵌入, 无需每周重算)
+    summary = {
+        "generated": datetime.date.today().isoformat(),
+        "index": "000922 中证红利",
+        "n_events": len(evs),
+        "n_resolved": sum(1 for e in evs if e["code"]),
+        "windows": {k: stats.get(k) for k in ("car_pre", "car_ae", "car05", "car10", "car20")},
+        "verdict": verdict if ae else "样本不足",
+    }
+    json.dump(summary, open(os.path.join(ROOT, "event_study_summary.json"), "w", encoding="utf-8"),
+              ensure_ascii=False, indent=2)
+    print(f"摘要已写: {os.path.join(ROOT, 'event_study_summary.json')}")
 
 if __name__ == "__main__":
     main()

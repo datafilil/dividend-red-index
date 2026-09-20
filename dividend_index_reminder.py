@@ -1284,6 +1284,46 @@ cons_html = f"""
 </section>
 """
 
+def build_event_study_section():
+    """嵌入「指数纳入效应」紧凑段；读取 event_study_summary.json（半年度重算快照，不每日刷新）。"""
+    p = os.path.join(HERE, "event_study_summary.json")
+    if not os.path.exists(p):
+        return ("<section><h2>指数纳入效应（可交易事件）</h2>"
+                "<div class='refbox'><p class='refnote'>纳入效应报告尚未生成（运行 "
+                "<code>python event_study.py</code> 生成 event_study_summary.json 后本段自动填充）。</p></div></section>")
+    try:
+        s = json.load(open(p, encoding="utf-8"))
+    except Exception:
+        return ""
+    w = s.get("windows") or {}
+    def row(k, label):
+        d = w.get(k)
+        if not d:
+            return f"<tr><td>{label}</td><td colspan='5' class='dim'>样本不足</td></tr>"
+        return (f"<tr><td><b>{label}</b></td>"
+                f"<td>{d['mean']:+.2f}%</td><td>{d['median']:+.2f}%</td><td>{d['hit']}%</td>"
+                f"<td>{d['min']:+.2f}%</td><td>{d['max']:+.2f}%</td></tr>")
+    ae = w.get("car_ae") or {}
+    headline = (f"主调仓窗口[公告→生效] 均值 <b class='pos'>{ae.get('mean',0):+.2f}%</b> · "
+                f"胜率 <b>{ae.get('hit',0)}%</b> · 中位 {ae.get('median',0):+.2f}%（n={ae.get('n','—')}）")
+    return f"""<section><h2>指数纳入效应（可交易事件）</h2>
+<div class="refbox">
+  <div class="reftitle">结论：{s.get('verdict','')}</div>
+  <p>{headline}。纳入效应源于指数基金被动调仓（公告→生效期间纯买入推动），属经典「指数效应」可交易窗口；完整 {s.get('n_events','?')} 次事件 / {s.get('n_resolved','?')} 只代码明细见 <code>event_study.html</code>。</p>
+  <table><thead><tr><th>窗口</th><th>均值</th><th>中位数</th><th>胜率(&gt;0)</th><th>最小</th><th>最大</th></tr></thead>
+  <tbody>
+  {row('car_pre','[-5,0] 事前泄露')}
+  {row('car_ae','[公告→生效] 主调仓窗口')}
+  {row('car05','[0,+5] 持有')}
+  {row('car10','[0,+10] 持有')}
+  {row('car20','[0,+20] 持有')}
+  </tbody></table>
+  <p class="refnote">数据生成于 {s.get('generated','')}；基准=红利指数(000922)自身，AR=个股−指数，CAR 为窗口累加。本段为半年度调整时重算的快照，非每日刷新。</p>
+</div></section>
+"""
+
+event_study_section = build_event_study_section()
+
 html = f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1364,6 +1404,8 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 <table><thead><tr><th>指标</th><th>当前值</th><th>历史分位 / 参考</th><th>水位</th></tr></thead>
 <tbody>{thermo_rows}</tbody></table>
 </section>
+
+{event_study_section}
 
 <div class="chart">{svg1}</div>
 <div class="chart">{svg2}</div>
