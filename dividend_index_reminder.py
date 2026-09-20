@@ -1321,47 +1321,7 @@ cons_html = f"""
 </section>
 """
 
-def build_event_study_section():
-    """嵌入「指数纳入效应」折叠段（默认收起，点击展开）；读取 event_study_summary.json（半年度重算快照，不每日刷新）。"""
-    p = os.path.join(HERE, "event_study_summary.json")
-    if not os.path.exists(p):
-        return ("<details class='fold'><summary><span class='foldt'>指数纳入效应（可交易事件）</span>"
-                "<span class='folds'>点击展开 · 报告未生成</span></summary>"
-                "<div class='refbox'><p class='refnote'>纳入效应报告尚未生成（运行 "
-                "<code>python event_study.py</code> 生成 event_study_summary.json 后本段自动填充）。</p></div></details>")
-    try:
-        s = json.load(open(p, encoding="utf-8"))
-    except Exception:
-        return ""
-    w = s.get("windows") or {}
-    def row(k, label):
-        d = w.get(k)
-        if not d:
-            return f"<tr><td>{label}</td><td colspan='5' class='dim'>样本不足</td></tr>"
-        return (f"<tr><td><b>{label}</b></td>"
-                f"<td>{d['mean']:+.2f}%</td><td>{d['median']:+.2f}%</td><td>{d['hit']}%</td>"
-                f"<td>{d['min']:+.2f}%</td><td>{d['max']:+.2f}%</td></tr>")
-    ae = w.get("car_ae") or {}
-    headline = (f"主调仓窗口[公告→生效] 均值 <b class='pos'>{ae.get('mean',0):+.2f}%</b> · "
-                f"胜率 <b>{ae.get('hit',0)}%</b> · 中位 {ae.get('median',0):+.2f}%（n={ae.get('n','—')}）")
-    return f"""<details class='fold'><summary><span class='foldt'>指数纳入效应（可交易事件）</span>
-  <span class='folds'>点击展开 · {s.get('verdict','')} · 主调仓窗口均值 {ae.get('mean',0):+.2f}% / 胜率 {ae.get('hit',0)}%</span></summary>
-<div class="refbox">
-  <div class="reftitle">结论：{s.get('verdict','')}</div>
-  <p>{headline}。纳入效应源于指数基金被动调仓（公告→生效期间纯买入推动），属经典「指数效应」可交易窗口；完整 {s.get('n_events','?')} 次事件 / {s.get('n_resolved','?')} 只代码明细见 <code>event_study.html</code>。</p>
-  <table><thead><tr><th>窗口</th><th>均值</th><th>中位数</th><th>胜率(&gt;0)</th><th>最小</th><th>最大</th></tr></thead>
-  <tbody>
-  {row('car_pre','[-5,0] 事前泄露')}
-  {row('car_ae','[公告→生效] 主调仓窗口')}
-  {row('car05','[0,+5] 持有')}
-  {row('car10','[0,+10] 持有')}
-  {row('car20','[0,+20] 持有')}
-  </tbody></table>
-  <p class="refnote">数据生成于 {s.get('generated','')}；基准=红利指数(000922)自身，AR=个股−指数，CAR 为窗口累加。本段为半年度调整时重算的快照，非每日刷新。</p>
-</div></details>
-"""
-
-event_study_section = build_event_study_section()
+event_study_section = ""  # ⑤ 指数纳入效应段已于 2026-09-20 从周报移除；event_study.py 仍可作独立工具运行
 
 html = f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
@@ -1441,21 +1401,9 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
   <div class="card"><div class="k">40日收益差值</div><div class="v {'pos' if cur_diff>=0 else 'neg'}">{fmt_pct(cur_diff)}</div><div class="d">{diff_state} · 历史分位 {'—' if diff_pct is None else f'{diff_pct:.0f}%'}（自2000年）</div></div>
 </div>
 <div class="grid">
-  <div class="card"><div class="k">PE(TTM) 历史分位</div><div class="v">{('—' if peg_pct is None else f'{peg_pct:.0f}%')}</div><div class="d">PE={('—' if cur_peg is None else f'{cur_peg:.2f}')}</div></div>
   <div class="card"><div class="k">股息率(计算用股本 D/P2)</div><div class="v">{('—' if not ind_last or ind_last['dp2'] is None else f"{ind_last['dp2']:.2f}%")}</div><div class="d">官网指标文件(000922)</div></div>
   <div class="card"><div class="k">近5年破MA500占比</div><div class="v">{below_rate:.1f}%</div><div class="d">共 {len(episodes)} 段</div></div>
 </div>
-
-<section><h2>中证红利全收益估值温度计（单标的 H00922 · 官网原生四指标）</h2>
-<div class="refbox">
-  <div class="reftitle">口径与来源</div>
-  <p>本温度计<b>仅跟踪单一标的 H00922（中证红利全收益指数）</b>，不横向对比其他指数。滚动PE(TTM) 与 EP(盈利收益率=1/滚动PE) 的历史分位由<b>中证官网全收益行情(perf 接口, 2016 起)</b>自算；静态PE / 股息率 取官网每日指数估值指标文件(000922)。<b>注：中证官网原生数据仅含 PE(静态/滚动) 与 股息率（指标文件共 10 列：PE1/PE2/D/P1/D/P2），不提供市净率 PB 与 净资产收益率 ROE</b>，故本期温度计交付上述 4 个官网原生指标；PB/ROE 待接入可靠外部源后补充。滚动PE、EP 有真实历史分位；静态PE、股息率为<b>当前值</b>（官网不公开其历史序列，仅标参考水位）。分位含义：绿=便宜 / 橙=中性 / 红=贵（越低越便宜）。</p>
-</div>
-<table><thead><tr><th>指标</th><th>当前值</th><th>历史分位 / 参考</th><th>水位</th></tr></thead>
-<tbody>{thermo_rows}</tbody></table>
-</section>
-
-{event_study_section}
 
 <div class="chart">{svg1}</div>
 <div class="chart">{svg2}</div>
