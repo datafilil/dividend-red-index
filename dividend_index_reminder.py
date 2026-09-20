@@ -473,85 +473,114 @@ def fetch_constituents():
             pass
     return {"date": None, "items": []}
 
+# 全市场扫描暂存(供 fetch_div_yields 复用，避免逐股请求踩东财按 IP 短时限流)
+_SCAN_DIVS = {}     # code -> {年份(str): 每股税前分红(元, 已除息)}
+_SCAN_QUOTES = {}   # code -> 现价(float)
+
 def fetch_div_yields(codes):
     """自算个股价息率 = 最近一个完整会计年度每股税前分红合计 ÷ 最新收盘价。
     分红明细来自东财数据中心(RPT_SHAREBONUS_DET, PRETAX_BONUS_RMB 为每10股税前红利，
     REPORT_DATE 归属会计年度)；收盘价来自东财批量行情(push2delay)。返回 {code: 股息率%}。
     口径：按"最近一个有分红记录的会计年度(中报+年报合计)"归集，与官方缓冲区条款
     "过去一年现金股息率"对齐；比滚动365天窗口更稳(后者会因除息日跨年漂移而错误归零)。
-    早期版本直接取行情接口股息率字段(f115)，实测对小盘/特殊分红个股失真(如-43%、20%)，故弃用。
-    注意：仍非中证官方选样口径(官方选样按"过去三年平均现金股息率")，仅作剔除候选参照。
     扩展：额外返回 cont_years（基于已除息报告期年份倒推的连续分红年数），用于成分质量 /
     剔除风险预警——红利指数样本空间硬条件"过去三年连续现金分红"，cont_years<3 即质量风险。
-    返回 {code: {"dy": 股息率%, "cont_years": int}}。"""
+    返回 {code: {"dy": 股息率%, "cont_years": int}}。
+
+    优化(2026-09-20)：优先复用 fetch_add_candidates() 全市场扫描缓存(_SCAN_DIVS/_SCAN_QUOTES)。
+    成分股本就是全市场扫描的子集，分红与现价数据已一次性取回，无需再逐股请求东财——
+    此前逐股 100 次请求会触发东财按 IP 短时限流(返回空 data 不抛异常)，导致整批 0/100。
+    仅对缓存未覆盖的代码走原接口(带重试 + 限速)补抓。"""
     out = {}
     if not codes:
         return out
-    # 1) 批量最新价
-    px = {}
-    for i in range(0, len(codes), 50):
-        chunk = codes[i:i + 50]
-        secids = ",".join(("1." if c.startswith("6") else "0.") + c for c in chunk)
-        for host in ("https://push2delay.eastmoney.com", "https://push2.eastmoney.com"):
-            try:
-                url = (f"{host}/api/qt/ulist.np/get?secids={secids}"
-                       "&fields=f12,f2&fltt=2&invt=2")
-                req = urllib.request.Request(url, headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                    "Referer": "https://quote.eastmoney.com/"})
-                with urllib.request.urlopen(req, timeout=25) as r:
-                    j = json.loads(r.read().decode("utf-8"))
-                for d_ in (j.get("data") or {}).get("diff") or []:
-                    v = d_.get("f2")
-                    if isinstance(v, (int, float)):
-                        px[str(d_.get("f12"))] = float(v)
-                break
-            except Exception:
-                continue
-    # 2) 逐股分红明细 → 最近一个会计年度每股税前分红合计
-    ok = 0
+    # 1) 复用扫描缓存(已含逐年每股分红 + 现价)
     for c in codes:
-        price = px.get(c)
-        if not price:
-            continue
-        try:
-            url = (f"https://datacenter-web.eastmoney.com/api/data/v1/get"
-                   f"?reportName=RPT_SHAREBONUS_DET&columns=SECURITY_CODE,REPORT_DATE,EX_DIVIDEND_DATE,PRETAX_BONUS_RMB"
-                   f"&filter=(SECURITY_CODE%3D%22{c}%22)&pageSize=30&pageNumber=1&sortColumns=REPORT_DATE&sortTypes=-1")
-            req = urllib.request.Request(url, headers={
-                "User-Agent": "Mozilla/5.0", "Referer": "https://data.eastmoney.com/"})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                j = json.loads(r.read().decode("utf-8"))
-            rows = (j.get("result") or {}).get("data") or []
-            per_year = {}     # 报告期年份 → 每股税前分红合计(含未除息记录)
-            ex_years = set()  # 已有分红实施(已除息)的报告期年份
-            for row in rows:
-                bonus = row.get("PRETAX_BONUS_RMB")
-                y = (row.get("REPORT_DATE") or "")[:4]
-                if not y.isdigit() or bonus is None:
-                    continue
-                per_year[y] = per_year.get(y, 0.0) + float(bonus) / 10.0
-                if (row.get("EX_DIVIDEND_DATE") or ""):
-                    ex_years.add(y)
-            # 只从"已实施分红"的年份中取最近一年——避免选中仅有未除息中期分红的当年，
-            # 否则"年报分红已除息+下一中期未除息"的个股会被错误压缩到近乎为零(实测陕西煤业0.22%)。
-            if per_year and ex_years:
-                dy = per_year[max(ex_years)] / price * 100.0
-                # 连续分红年数：已除息报告期年份倒推(截至最新已除息年度)，跨年缺失即断
-                ey = sorted(ex_years, reverse=True)
+        ys = _SCAN_DIVS.get(c)
+        px = _SCAN_QUOTES.get(c)
+        if ys and px:
+            ey = sorted(int(y) for y in ys.keys() if str(y).isdigit())
+            if ey:
+                dy = ys[str(max(ey))] / px * 100.0
                 cont = 0
                 prev = None
-                for y in ey:
+                for y in sorted(ey, reverse=True):
                     if prev is None or prev - y == 1:
                         cont += 1
                         prev = y
                     else:
                         break
                 out[c] = {"dy": dy, "cont_years": cont}
-                ok += 1
-        except Exception:
+    missing = [c for c in codes if c not in out]
+    if not missing:
+        print(f"      股息率(最近会计年度): 复用扫描缓存 {len(out)}/{len(codes)} 只")
+        return out
+    # 2) 漏网代码走原逐股接口(重试 + 限速，规避限流)
+    def _get(url, timeout=20, retries=3):
+        for a in range(retries):
+            try:
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "Mozilla/5.0", "Referer": "https://data.eastmoney.com/"})
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    return json.loads(r.read().decode("utf-8"))
+            except Exception:
+                if a < retries - 1:
+                    time.sleep(1.2)
+        return None
+    # 2a) 批量最新价
+    px_live = {}
+    for i in range(0, len(missing), 50):
+        chunk = missing[i:i + 50]
+        secids = ",".join(("1." if c.startswith("6") else "0.") + c for c in chunk)
+        for host in ("https://push2delay.eastmoney.com", "https://push2.eastmoney.com"):
+            j = _get(f"{host}/api/qt/ulist.np/get?secids={secids}&fields=f12,f2&fltt=2&invt=2")
+            if j:
+                for d_ in (j.get("data") or {}).get("diff") or []:
+                    v = d_.get("f2")
+                    if isinstance(v, (int, float)):
+                        px_live[str(d_.get("f12"))] = float(v)
+                break
+        time.sleep(0.1)
+    # 2b) 逐股分红明细(重试 + 限速)
+    ok = 0
+    for c in missing:
+        price = px_live.get(c)
+        if not price:
             continue
-    print(f"      股息率(最近会计年度): 自算完成 {ok}/{len(codes)} 只(东财分红明细/现价)")
+        j = _get("https://datacenter-web.eastmoney.com/api/data/v1/get"
+                 "?reportName=RPT_SHAREBONUS_DET&columns=SECURITY_CODE,REPORT_DATE,EX_DIVIDEND_DATE,PRETAX_BONUS_RMB"
+                 f"&filter=(SECURITY_CODE%3D%22{c}%22)&pageSize=30&pageNumber=1&sortColumns=REPORT_DATE&sortTypes=-1")
+        if not j:
+            time.sleep(0.15)
+            continue
+        rows = (j.get("result") or {}).get("data") or []
+        per_year = {}     # 报告期年份 → 每股税前分红合计(含未除息记录)
+        ex_years = set()  # 已有分红实施(已除息)的报告期年份
+        for row in rows:
+            bonus = row.get("PRETAX_BONUS_RMB")
+            y = (row.get("REPORT_DATE") or "")[:4]
+            if not y.isdigit() or bonus is None:
+                continue
+            per_year[y] = per_year.get(y, 0.0) + float(bonus) / 10.0
+            if (row.get("EX_DIVIDEND_DATE") or ""):
+                ex_years.add(y)
+        # 只从"已实施分红"的年份中取最近一年——避免选中仅有未除息中期分红的当年，
+        # 否则"年报分红已除息+下一中期未除息"的个股会被错误压缩到近乎为零(实测陕西煤业0.22%)。
+        if per_year and ex_years:
+            dy = per_year[max(ex_years)] / price * 100.0
+            ey = sorted(int(y) for y in ex_years)
+            cont = 0
+            prev = None
+            for y in sorted(ey, reverse=True):
+                if prev is None or prev - y == 1:
+                    cont += 1
+                    prev = y
+                else:
+                    break
+            out[c] = {"dy": dy, "cont_years": cont}
+            ok += 1
+        time.sleep(0.15)
+    print(f"      股息率(最近会计年度): 复用扫描 {len(out) - ok}/{len(codes)} 只 + 逐股补 {ok}/{len(missing)} 只")
     return out
 
 def next_adjustment(today=None):
@@ -617,10 +646,12 @@ def fetch_add_candidates(max_age_days=7):
         except Exception:
             return None
     cached = _load_cache()
-    if cached and cached.get("generated"):
+    if cached and cached.get("generated") and cached.get("divs_slim"):
         try:
             age = (datetime.date.today() - datetime.date.fromisoformat(cached["generated"])).days
             if age <= max_age_days:
+                _SCAN_DIVS.update(cached.get("divs_slim") or {})
+                _SCAN_QUOTES.update(cached.get("quotes_slim") or {})
                 print(f"      纳入候选: 使用{age}天前缓存({cached['generated']})")
                 return cached
         except ValueError:
@@ -737,11 +768,15 @@ def fetch_add_candidates(max_age_days=7):
         newcomers = [c for c in cands[:100] if not c["member"]]
         out = {"generated": today.isoformat(), "years": years,
                "n_elig": len(cands), "n_member_top100": sum(1 for c in cands[:100] if c["member"]),
-               "n_newcomers": len(newcomers), "newcomers": newcomers[:25]}
+               "n_newcomers": len(newcomers), "newcomers": newcomers[:25],
+               "divs_slim": {code: d["years"] for code, d in divs.items()},
+               "quotes_slim": {code: q["price"] for code, q in quotes.items()}}
         try:
             json.dump(out, open(ADD_CACHE, "w", encoding="utf-8"), ensure_ascii=False)
         except Exception:
             pass
+        _SCAN_DIVS.update(out.get("divs_slim") or {})
+        _SCAN_QUOTES.update(out.get("quotes_slim") or {})
         print(f"      纳入候选: 全市场扫描完成(合格池{len(cands)}, 非成分Top100 {len(newcomers)})")
         return out
     except Exception as e:
@@ -1111,6 +1146,7 @@ if not ep_rows:
 # ---------- 成分股模块：当前成分(官网) + 剔除候选(规则参照) + 调整预告 + 近五年调整史 ----------
 cons = fetch_constituents()
 cons_items = cons.get("items") or []
+addc = fetch_add_candidates()   # 提前跑全市场扫描，暂存 divs/quotes 供 fetch_div_yields 复用(免逐股限流)
 cons_div = fetch_div_yields([c["code"] for c in cons_items]) if cons_items else {}
 for c in cons_items:
     d = cons_div.get(c["code"])
@@ -1169,8 +1205,7 @@ thermo_rows += _thermo_row("静态PE", _pei, None, True, "官网指标文件(当
 thermo_rows += _thermo_row("股息率 (D/P2)", _dyi, None, True, "参考 >5% 为高股息")
 # 剔除候选：按股息率(最近会计年度)升序取最低20只(公告惯例20进20出；缓冲区硬条件为"过去一年现金股息率>0.5%"，此处为参照口径)
 cand = sorted(_dy_have, key=lambda x: x["dy"])[:20]
-# 纳入候选：全市场按官方规则近似筛选(缓存7天,失败降级旧缓存),与剔除候选对称的参照
-addc = fetch_add_candidates()
+# 纳入候选：全市场按官方规则近似筛选(已在成分模块提前执行并暂存扫描数据),与剔除候选对称的参照
 adj_y, adj_eff, adj_note = next_adjustment()
 adj_eff_cn = f"{adj_y}年12月第二个星期五的下一交易日 {adj_eff.isoformat()}（{WEEKDAY_CN[adj_eff.weekday()]}）"
 
