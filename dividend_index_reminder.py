@@ -480,7 +480,10 @@ def fetch_div_yields(codes):
     口径：按"最近一个有分红记录的会计年度(中报+年报合计)"归集，与官方缓冲区条款
     "过去一年现金股息率"对齐；比滚动365天窗口更稳(后者会因除息日跨年漂移而错误归零)。
     早期版本直接取行情接口股息率字段(f115)，实测对小盘/特殊分红个股失真(如-43%、20%)，故弃用。
-    注意：仍非中证官方选样口径(官方选样按"过去三年平均现金股息率")，仅作剔除候选参照。"""
+    注意：仍非中证官方选样口径(官方选样按"过去三年平均现金股息率")，仅作剔除候选参照。
+    扩展：额外返回 cont_years（基于已除息报告期年份倒推的连续分红年数），用于成分质量 /
+    剔除风险预警——红利指数样本空间硬条件"过去三年连续现金分红"，cont_years<3 即质量风险。
+    返回 {code: {"dy": 股息率%, "cont_years": int}}。"""
     out = {}
     if not codes:
         return out
@@ -533,7 +536,18 @@ def fetch_div_yields(codes):
             # 只从"已实施分红"的年份中取最近一年——避免选中仅有未除息中期分红的当年，
             # 否则"年报分红已除息+下一中期未除息"的个股会被错误压缩到近乎为零(实测陕西煤业0.22%)。
             if per_year and ex_years:
-                out[c] = per_year[max(ex_years)] / price * 100.0
+                dy = per_year[max(ex_years)] / price * 100.0
+                # 连续分红年数：已除息报告期年份倒推(截至最新已除息年度)，跨年缺失即断
+                ey = sorted(ex_years, reverse=True)
+                cont = 0
+                prev = None
+                for y in ey:
+                    if prev is None or prev - y == 1:
+                        cont += 1
+                        prev = y
+                    else:
+                        break
+                out[c] = {"dy": dy, "cont_years": cont}
                 ok += 1
         except Exception:
             continue
@@ -1097,9 +1111,11 @@ if not ep_rows:
 # ---------- 成分股模块：当前成分(官网) + 剔除候选(规则参照) + 调整预告 + 近五年调整史 ----------
 cons = fetch_constituents()
 cons_items = cons.get("items") or []
-cons_dy = fetch_div_yields([c["code"] for c in cons_items]) if cons_items else {}
+cons_div = fetch_div_yields([c["code"] for c in cons_items]) if cons_items else {}
 for c in cons_items:
-    c["dy"] = cons_dy.get(c["code"])
+    d = cons_div.get(c["code"])
+    c["dy"] = d["dy"] if d else None
+    c["cont_years"] = d["cont_years"] if d else None
 cons_date = cons.get("date")
 cons_date_cn = (f"{cons_date[:4]}-{cons_date[4:6]}-{cons_date[6:]}" if cons_date else "—")
 top10 = sorted([c for c in cons_items if c["weight"] is not None],
@@ -1161,10 +1177,28 @@ for i, c in enumerate(top10):
     dy_s = "—" if c["dy"] is None else f"{c['dy']:.2f}%"
     top10_rows += (f"<tr><td>{i+1}</td><td>{c['code']}</td><td>{c['name']}</td>"
                    f"<td>{c['weight']:.3f}%</td><td>{dy_s}</td></tr>")
-cand_rows = "".join(
-    f"<tr><td>{c['code']}</td><td>{c['name']}</td>"
-    f"<td class='{'neg' if c['dy'] <= 0.5 else ''}'>{c['dy']:.2f}%</td></tr>"
-    for c in cand)
+def _div_risk(c):
+    """成分质量/剔除风险：双维度。返回 (css类, 风险文案)。
+    ① 股息率(年) ≤ 0.5% 触发缓冲区硬条件①；② 连续分红<3年 触发样本空间硬条件。"""
+    reasons = []
+    if c["dy"] is not None and c["dy"] <= 0.5:
+        reasons.append("股息率≤0.5%")
+    if c["cont_years"] is not None and c["cont_years"] < 3:
+        reasons.append("连续分红<3年")
+    if reasons:
+        return "pos", "、".join(reasons)
+    return "", "达标"
+cand_rows = ""
+for c in cand:
+    rcls, rtxt = _div_risk(c)
+    dy_cell = ("—" if c["dy"] is None else f"{c['dy']:.2f}%")
+    dy_cls = "pos" if (c["dy"] is not None and c["dy"] <= 0.5) else ""
+    cont_cell = ("—" if c["cont_years"] is None else str(c["cont_years"]))
+    cand_rows += (f"<tr><td>{c['code']}</td><td>{c['name']}</td>"
+                  f"<td class='{dy_cls}'>{dy_cell}</td>"
+                  f"<td>{cont_cell}</td>"
+                  f"<td class='{rcls}'>{rtxt}</td></tr>")
+_n_risk = sum(1 for c in cand if _div_risk(c)[0])
 # 行业权重分布折叠表(默认收起,点击展开)
 if ind_sorted:
     ind_rows = "".join(
@@ -1232,9 +1266,11 @@ cons_html = f"""
   <p><b>缓冲区条款</b>（2022-12修订版，原样本不满足以下任一条件即失去样本资格）：
   ① 过去一年现金股息率 &gt; 0.5%；② 过去一年日均总市值位于中证全指样本空间前90%；
   ③ 过去一年日均成交金额位于中证全指样本空间前90%；④ 过去三年股利支付率均值在 0～1 之间。</p>
-  <p><b>剔除候选参照</b>（当前样本中股息率最低的20只，按公告惯例20进20出取满额；口径为最近会计年度分红/现价，≤ 0.5% 将触发缓冲区硬条件，红色标注）：
+  <p><b>剔除候选参照</b>（当前样本中股息率最低的20只，按公告惯例20进20出取满额；双维度风险预警，均基于东方财富分红实施数据自算）：
+  ① <b>股息率(年) ≤ 0.5%</b> 触发缓冲区硬条件①（红色）；② <b>连续分红 &lt; 3 年</b> 触发样本空间硬条件「过去三年连续现金分红」（红色）。
+  本批 {_n_risk}/{len(cand)} 只触发至少一项风险标记。
   由于完整选样需全市场「过去三年平均股息率」排名（官方未公开逐股数据），下表仅为规则参照，<b>不构成调整名单预测</b>。</p>
-  <table><thead><tr><th>代码</th><th>名称</th><th>股息率(年)</th></tr></thead>
+  <table><thead><tr><th>代码</th><th>名称</th><th>股息率(年)</th><th>连续分红(年)</th><th>风险标记</th></tr></thead>
   <tbody>{cand_rows}</tbody></table>{add_block}
   <p class="refnote">临时调整：样本退市即剔除；收购、合并、分拆等按指数计算与维护细则处理。</p>
 </div>
