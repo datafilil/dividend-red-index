@@ -1,3 +1,18 @@
+# 中证红利全收益指数周报（dividend-red-index）
+
+## 访问与可见性（2026-09-24 封闭决策）
+
+本项目为**个人自用、封闭**工具，**不对外公开**：
+
+- 仓库已设为 **Private**（Settings → Change visibility → Make private）。
+- **不再发布公开 Pages 页**：`weekly-report.yml` 已移除「同步到 Pages 根目录」步骤，
+  旧公开页产物 `index.html` / `site/` 已从仓库删除并加入 `.gitignore`。
+- 每周自动化仍在跑（GitHub Actions，仅提交报告与缓存增量到本私有仓库），
+  **报告仅仓库所有者可见，不再有任何人可读的公开 URL**。
+- 如需彻底本地化（删掉云端自动化、本机手动跑），删除 `.github/workflows/weekly-report.yml` 即可。
+
+---
+
 fix+feat: 趋势图定版 + 成分股模块（相对 a78066a 的全部变更）
 
 【趋势图定版】
