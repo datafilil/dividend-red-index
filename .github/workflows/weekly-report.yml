@@ -1,13 +1,19 @@
 name: 红利指数日报
 
-# 触发方式：每周一至周五 19:28 北京时间自动(收盘后取数) + 支持手动触发
+# 触发方式：周一至周五 北京时间 15:28–23:58 每 10 分钟轮询(取到官网当日数据即出报告) + 支持手动触发
+# 轮询不必担心空跑：脚本内置轻量预检，官网数据日期未前进时一次 HTTP 即退出，
+# 只有"官网当日数据发布后的第一次触发"才会跑全量取数(全市场扫描等)，当天后续触发全部秒退。
 on:
   schedule:
-    # GitHub Actions cron 用 UTC；北京时间 19:28 = UTC 11:28；周一到周五 = 1-5 (0=周日)
-    # 非整点档位，避开 GitHub 调度器整点(尤其 0:00/12:00 UTC)高负载，基本准点触发；
-    # 且晚于中证官网当日数据更新(约 18:00 后)，可取到当日收盘与估值指标。
-    - cron: '28 11 * * 1-5'
+    # GitHub Actions cron 用 UTC；北京 15:28–23:58 = UTC 07:28–15:58；周一至五 = 1-5
+    # 分针固定 28/38/48/58，避开 :00/:30(GitHub 调度高峰，整点/半点易被延迟或丢弃)
+    - cron: '28,38,48,58 7-15 * * 1-5'
   workflow_dispatch:  # 仓库 Actions 页可手动点 "Run workflow" 触发
+    inputs:
+      force:
+        description: '强制全量重跑（忽略"官网数据未前进就跳过"预检；平日手动触发无需勾选）'
+        type: boolean
+        default: false
 
 # 自动提交需要写权限
 permissions:
@@ -35,9 +41,14 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: 运行取数与报告生成脚本
+        id: run
+        env:
+          # 手动触发时若勾选 force，则跳过"数据未前进"预检强制全量重跑
+          FORCE_RUN: ${{ inputs.force && '1' || '' }}
         run: python dividend_index_reminder.py
 
       - name: 同步报告到 Pages 根目录
+        if: steps.run.outputs.report_updated == 'true'
         run: |
           cp dividend_index_report.html index.html
           mkdir -p site
@@ -46,6 +57,7 @@ jobs:
           ls -la index.html site/index.html
 
       - name: 提交更新（缓存增量 + 历史快照 + 报告 + site）
+        if: steps.run.outputs.report_updated == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

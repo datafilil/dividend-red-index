@@ -46,13 +46,61 @@ CACHE_DIR    = os.path.join(HERE, "cache")  # 全历史日线本地缓存(增量
 CACHE_P      = os.path.join(CACHE_DIR, f"{PRIMARY_CODE.lower()}.json")
 CACHE_B      = os.path.join(CACHE_DIR, f"{BENCH_CODE}.json")
 CONS_CACHE   = os.path.join(CACHE_DIR, f"{INDICATOR_CODE}cons.json")  # 成分股缓存(取数失败降级用)
-WORKFLOW_FILE = os.path.join(HERE, "weekly-report.yml")        # Actions 调度配置(自动收敛时改写 cron)
-CAPTURE_STATE_FILE = os.path.join(HERE, "capture_state.json")  # 收敛锁: 记录已锁定 cron 与末次抓取日
+# ---------- 预检: 官网数据日期未前进时立即退出(轮询友好) ----------
+# 工作流在北京 15:28–23:58 每 10 分钟触发一次, 但中证官网"当日数据"的发布时间不固定(常见 18:00–23:00,
+# 偶发更晚)。若每次触发都跑全量(全市场扫描等重活)会反复空跑、也白白夯数据源, 故先用一次极轻量的
+# 行情请求读"官网最新交易日", 未超过已发布报告的数据日期即立刻退出 →
+# 效果: 每个交易日只有"官网数据真正更新后的第一次触发"才跑全量, 其余轮询都是一次 HTTP 就结束。
+# 本地调试需强制全量跑: 命令行加 --force, 或设环境变量 FORCE_RUN=1。
+def committed_data_date():
+    """已发布报告中的数据日期(YYYY-MM-DD); 读不到返回 None。"""
+    try:
+        s = open(REPORT_FILE, encoding="utf-8").read()
+        mm = re.search(r"生成日期：(\d{4}-\d{2}-\d{2})", s)
+        return mm.group(1) if mm else None
+    except Exception:
+        return None
+
+def latest_trade_date_light(days=45):
+    """轻量预检: 只拉主标的最近 days 天行情, 返回官网最新交易日(YYYY-MM-DD); 异常返回 None(不阻断主流程)。"""
+    end = datetime.date.today()
+    start = end - datetime.timedelta(days=days)
+    url = (f"{CSINDEX_PERF}?indexCode={PRIMARY_CODE}"
+           f"&startDate={start.strftime('%Y%m%d')}&endDate={end.strftime('%Y%m%d')}")
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://www.csindex.com.cn/",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            d = json.loads(r.read().decode("utf-8"))
+        ds = [str(x.get("tradeDate")) for x in (d.get("data") or []) if x.get("tradeDate")]
+        if not ds:
+            return None
+        t = max(ds)
+        return f"{t[:4]}-{t[4:6]}-{t[6:8]}"
+    except Exception as e:
+        print(f"[预检] 轻量取数失败(转为正常全量流程): {e}")
+        return None
+
+REPORT_UPDATED = False
+
 CSINDEX_PERF = "https://www.csindex.com.cn/csindex-home/perf/index-perf"
 DATA_NOTE = ("数据来源：中证指数有限公司官网 csindex.com.cn（指数表现接口 + 每日更新的指数估值指标文件），免费、无需授权。"
              "主标的 H00922 与基准 H00985 均为全收益口径(含分红再投资)，两侧可比。"
              "40 日收益差在主标的与基准的交易日交集上按 40 个交易日滚动计算。"
              "PE 分位由官网 peg 字段在自身历史中计算；股息率取自官网指标文件(000922 价格指数口径)。")
+
+# ---------- 执行预检: 数据未前进则立即退出(不进入全量取数) ----------
+PREV_DATA_DATE = committed_data_date()
+if "--force" in sys.argv or os.environ.get("FORCE_RUN") == "1":
+    print(f"[预检] 指定强制全量跑(已发布数据日期={PREV_DATA_DATE}), 跳过预检")
+else:
+    _latest = latest_trade_date_light()
+    if _latest and PREV_DATA_DATE and _latest <= PREV_DATA_DATE:
+        print(f"[预检] 官网最新交易日 {_latest} 未超过已发布 {PREV_DATA_DATE} → 本轮跳过(等官网更新后自动续跑)")
+        sys.exit(0)
+    print(f"[预检] 官网最新交易日={_latest} / 已发布={PREV_DATA_DATE} → 需要更新, 进入全量取数")
 
 # ============ 数据质量：交易日清洗 & 告警 ============
 # 背景：中证官网曾返回一行 2026-08-29(周六) 的伪数据，收盘价与次日 8/31 完全相同。
@@ -1438,61 +1486,33 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 <div class="note">{DATA_NOTE}<br>本报告由自动化脚本生成，仅供研究与跟踪参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。</div>
 </div></body></html>"""
 
-open(REPORT_FILE, "w", encoding="utf-8").write(html)
+# ---------- 报告发布守卫: 仅当数据日期较已发布版本前进时才写入/发布 ----------
+new_dd = str(last_date)
+old_dd = committed_data_date()
+REPORT_UPDATED = (old_dd is None) or (new_dd > old_dd)
+if REPORT_UPDATED:
+    open(REPORT_FILE, "w", encoding="utf-8").write(html)
+    print(f"[报告] 数据日期 {new_dd} 较已发布 {old_dd} 前进, 已写入报告")
+else:
+    print(f"[报告] 数据日期仍为 {new_dd} (未前进), 跳过写入与发布(避免提前锁定 T-1)")
 
 # ---------- 同步到发布目录(供云端部署) ----------
-try:
-    import shutil
-    os.makedirs(SITE_DIR, exist_ok=True)
-    shutil.copyfile(REPORT_FILE, os.path.join(SITE_DIR, "index.html"))
-    print("site  ->", os.path.join(SITE_DIR, "index.html"))
-except Exception as e:
-    print(f"[提示] 发布目录同步失败(不影响本地报告): {e}")
-
-# ---------- 自动收敛: 轮询确认当日数据更新后, 把 cron 锁定到"安全下限"固定时刻(不再每10分重试) ----------
-# 安全下限 = 数据最坏延迟时刻 + 缓冲; 据官方数据延迟可能到 23:00, 故固定为北京 23:10(UTC 15:10)。
-# 若首日成功抓取时刻早于下限, 一律夹到下限; 若极晚(>23:50)则夹到 23:50 兜底。改此常量即可调下限。
-SAFE_FLOOR_BJ_H, SAFE_FLOOR_BJ_M = 23, 10
-
-def auto_collapse_cron():
-    # 仅在"当日数据已取到(last_date==今天)"且尚未锁定时触发; 否则继续每10分重试
-    state = {}
+if REPORT_UPDATED:
     try:
-        if os.path.exists(CAPTURE_STATE_FILE):
-            state = json.load(open(CAPTURE_STATE_FILE, encoding="utf-8"))
-    except Exception:
-        state = {}
-    if state.get("locked_cron"):
-        return  # 已锁定, 不再改写
-    today = datetime.date.today()
-    if last_date != today:
-        return  # 当日数据尚未到(仍为上一交易日), 维持重试窗口
-    # 当日数据已取到 -> 锁定到"安全下限"时刻: 候选=成功时刻(UTC)+10分, 但不早于安全下限、不晚于23:50
-    t = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)
-    hh, mm = t.hour, t.minute
-    bj_h, bj_m = (hh + 8) % 24, mm
-    if (bj_h, bj_m) < (SAFE_FLOOR_BJ_H, SAFE_FLOOR_BJ_M):
-        bj_h, bj_m = SAFE_FLOOR_BJ_H, SAFE_FLOOR_BJ_M   # 不得低于安全下限(避免首日异常早到锁太早)
-    if bj_h > 23 or (bj_h == 23 and bj_m > 50):         # 极晚抓取兜底, 避免跨午夜/超时
-        bj_h, bj_m = 23, 50
-    utc_h = (bj_h - 8) % 24
-    locked = f"{bj_m:02d} {utc_h:02d} * * 1-5"
-    try:
-        yml = open(WORKFLOW_FILE, encoding="utf-8").read()
-        new_yml = re.sub(r"    - cron: '[^']*'\n    - cron: '[^']*'\n",
-                         f"    - cron: '{locked}'   # 自动收敛: 轮询确认当日数据后锁定到安全下限(北京{bj_h:02d}:{bj_m:02d})\n",
-                         yml)
-        if new_yml != yml:
-            open(WORKFLOW_FILE, "w", encoding="utf-8").write(new_yml)
-            print(f"[收敛] 已锁定 cron 为每日北京 {bj_h:02d}:{bj_m:02d} (UTC {utc_h:02d}:{bj_m:02d}), 不再每10分重试")
-        state["locked_cron"] = locked
-        state["locked_at_utc"] = t.isoformat()
-        state["safe_floor_bj"] = f"{SAFE_FLOOR_BJ_H:02d}:{SAFE_FLOOR_BJ_M:02d}"
-        state["last_captured_date"] = last_date.isoformat()
-        json.dump(state, open(CAPTURE_STATE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        import shutil
+        os.makedirs(SITE_DIR, exist_ok=True)
+        shutil.copyfile(REPORT_FILE, os.path.join(SITE_DIR, "index.html"))
+        print("site  ->", os.path.join(SITE_DIR, "index.html"))
     except Exception as e:
-        print(f"[提示] cron 自动收敛失败(不影响本次报告): {e}")
+        print(f"[提示] 发布目录同步失败(不影响本地报告): {e}")
 
-auto_collapse_cron()
+# ---------- 向 GitHub Actions 传出判定, 控制是否提交/发布 ----------
+gh_out = os.environ.get("GITHUB_OUTPUT")
+if gh_out:
+    try:
+        with open(gh_out, "a", encoding="utf-8") as f:
+            f.write(f"report_updated={'true' if REPORT_UPDATED else 'false'}\n")
+    except Exception:
+        pass
 
-print("DONE. report ->", REPORT_FILE)
+print("DONE. report ->", REPORT_FILE, "| report_updated=", REPORT_UPDATED)
