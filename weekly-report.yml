@@ -37,7 +37,15 @@ jobs:
       - name: 运行取数与报告生成脚本
         run: python dividend_index_reminder.py
 
-      - name: 提交更新（缓存增量 + 报告）
+      - name: 同步报告到 Pages 根目录
+        run: |
+          cp dividend_index_report.html index.html
+          mkdir -p site
+          cp dividend_index_report.html site/index.html
+          echo "--- 报告产物 ---"
+          ls -la index.html site/index.html
+
+      - name: 提交更新（缓存增量 + 报告 + site）
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

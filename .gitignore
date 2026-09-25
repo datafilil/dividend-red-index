@@ -1,6 +1,3 @@
 cache/
 event_study.html
 *.log
-# 不再发布公开 Pages 页；以下为旧公开页产物，禁止重新入仓
-index.html
-site/
