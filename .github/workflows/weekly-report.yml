@@ -1,13 +1,13 @@
-name: 红利指数日报
+name: 红利指数日报（生成 + 推送线上）
 
-# 触发方式：周一至周五 北京时间 15:28–23:58 每 10 分钟轮询(取到官网当日数据即出报告) + 支持手动触发
-# 轮询不必担心空跑：脚本内置轻量预检，官网数据日期未前进时一次 HTTP 即退出，
-# 只有"官网当日数据发布后的第一次触发"才会跑全量取数(全市场扫描等)，当天后续触发全部秒退。
+# 触发方式（GitHub Actions cron 用 UTC，北京 = UTC+8）：
+#   工作日北京 23:30 / 23:50 各一次 —— 中证官网当日数据常延迟到 23:00 才更新，
+#   故分两次、留一次补跑。数据未前进时脚本产出旧日期报告，线上 /ingest 会拒绝
+#   （stored=false），重复触发安全，不会把新报告覆盖回旧版本。
 on:
   schedule:
-    # GitHub Actions cron 用 UTC；北京 15:28–23:58 = UTC 07:28–15:58；周一至五 = 1-5
-    # 分针固定 28/38/48/58，避开 :00/:30(GitHub 调度高峰，整点/半点易被延迟或丢弃)
-    - cron: '28,38,48,58 7-15 * * 1-5'
+    - cron: '30 15 * * 1-5'   # 北京 23:30
+    - cron: '50 15 * * 1-5'   # 北京 23:50（补跑）
   workflow_dispatch:  # 仓库 Actions 页可手动点 "Run workflow" 触发
     inputs:
       force:
@@ -15,19 +15,19 @@ on:
         type: boolean
         default: false
 
-# 自动提交需要写权限
+# 只读即可：报告不再提交回仓库（公开 Pages 已下线），线上内容由 Cloudflare KV 承载。
 permissions:
-  contents: write
+  contents: read
 
-# 同一时间只跑一个，避免并发提交冲突
+# 同一时间只跑一个
 concurrency:
   group: dividend-report
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout 仓库（含 cache 缓存种子）
         uses: actions/checkout@v4
@@ -47,27 +47,24 @@ jobs:
           FORCE_RUN: ${{ inputs.force && '1' || '' }}
         run: python dividend_index_reminder.py
 
-      - name: 同步报告到 Pages 根目录
+      # 关键：CI 里不持有任何 Cloudflare 凭据。
+      # 报告 POST 给线上 Worker 的 /ingest，由 Worker 用它自己的 KV 绑定写库；
+      # CI 只需要 INGEST_TOKEN 一个共享口令（与 Worker 端同名 secret 一致）。
+      - name: 推送到线上（Worker /ingest → KV）
         if: steps.run.outputs.report_updated == 'true'
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
         run: |
-          cp dividend_index_report.html index.html
-          mkdir -p site
-          cp dividend_index_report.html site/index.html
-          echo "--- 报告产物 ---"
-          ls -la index.html site/index.html
+          grep -o "生成日期：[0-9-]*" dividend_index_report.html | head -1
+          python push_ingest.py dividend_index_report.html
 
-      - name: 提交更新（缓存增量 + 历史快照 + 报告 + site）
+      # 顺带把"全市场扫描"结果推进 KV —— 这是整条链路唯一的重活，
+      # 线上 Worker 自己跑它会撞 128MB 上限。推给它之后，Worker 每天 cron
+      # 都能命中缓存，不再重扫，从而具备自主日更能力。
+      # 失败不影响主流程（报告已经推成功），故 continue-on-error。
+      - name: 推送全市场扫描缓存（Worker 据此免于自扫）
         if: steps.run.outputs.report_updated == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "本轮无变更（官网未更新），跳过提交"
-          else
-            git commit -m "chore: 红利指数周报 $(date -u +%Y-%m-%d)"
-            # 拉取远程最新提交并 rebase(避免外部 PUT 推送与本地 commit 冲突导致 push 被拒)
-            git pull --rebase "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ${GITHUB_REF_NAME}
-            git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${GITHUB_REF_NAME}
-            echo "已提交并推送"
-          fi
+        continue-on-error: true
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: python push_ingest.py --scan cache/add_candidates.json
