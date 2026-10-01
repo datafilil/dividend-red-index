@@ -15,9 +15,10 @@ on:
         type: boolean
         default: false
 
-# 只读即可：报告不再提交回仓库（公开 Pages 已下线），线上内容由 Cloudflare KV 承载。
+# 改为可写：生成报告后把 index.html 提交回仓库，让 GitHub Pages 自动重建。
+# 你已能正常打开 github.io（只是旧），用它作“稳定可访问的镜像”；线上 Worker+KV 仍保留作备份。
 permissions:
-  contents: read
+  contents: write
 
 # 同一时间只跑一个
 concurrency:
@@ -31,6 +32,8 @@ jobs:
     steps:
       - name: Checkout 仓库（含 cache 缓存种子）
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 需要完整历史以便下方 git push 提交 index.html
 
       - name: 安装 Python
         uses: actions/setup-python@v5
@@ -68,3 +71,22 @@ jobs:
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
         run: python push_ingest.py --scan cache/add_candidates.json
+
+      # 让 GitHub Pages 自动重建：把生成的报告写回仓库根 index.html 并提交。
+      # 你已能正常打开 github.io（只是旧），用它作“稳定可访问的镜像”；
+      # 线上 Worker+KV 仍保留作备份。仅当报告日期真正前进（report_updated）才提交。
+      - name: 更新 GitHub Pages（提交 index.html）
+        if: steps.run.outputs.report_updated == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp dividend_index_report.html index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "index.html 无变化，跳过提交"
+          else
+            git commit -m "chore: 自动更新日报 $(TZ=Asia/Shanghai date +%F)"
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/datafilil/dividend-red-index.git HEAD:main
+          fi
