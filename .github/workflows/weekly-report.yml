@@ -72,21 +72,37 @@ jobs:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
         run: python push_ingest.py --scan cache/add_candidates.json
 
-      # 让 GitHub Pages 自动重建：把生成的报告写回仓库根 index.html 并提交。
-      # 你已能正常打开 github.io（只是旧），用它作“稳定可访问的镜像”；
-      # 线上 Worker+KV 仍保留作备份。仅当报告日期真正前进（report_updated）才提交。
-      - name: 更新 GitHub Pages（提交 index.html）
-        if: steps.run.outputs.report_updated == 'true'
+      # 把生成结果写回仓库：①让 GitHub Pages 自动重建；②回写扫描缓存种子。
+      # index.html：仅当报告日期真正前进（report_updated）才更新，避免无意义提交；
+      #   且 commit message 改用报告“生成日期”（取 dividend_index_report.html 里的“生成日期：YYYY-MM-DD”），
+      #   不再用运行日，消除“10/1 跑出 9/30 数据”的日期歧义。
+      # cache/add_candidates.json：始终尝试回写。fetch_add_candidates() 带 7 天守卫，
+      #   种子新鲜时 CI 直接读缓存、不重扫；陈旧时才重扫并刷新种子(generated=当天)。
+      #   回写仓库可避免“种子卡在旧日期 → 每次 CI 都重扫 91 页”的浪费（原瑕疵）。
+      # 线上 Worker+KV 仍保留作备份。
+      - name: 回写仓库（Pages index.html + 扫描缓存种子）
+        if: steps.run.outcome == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp dividend_index_report.html index.html
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
+          # 报告：仅数据前进时回写 index.html
+          if [ "${{ steps.run.outputs.report_updated }}" = "true" ]; then
+            cp dividend_index_report.html index.html
+            git add index.html
+          fi
+          # 扫描缓存种子：始终尝试回写（7 天守卫保证不会每日重扫）
+          git add cache/add_candidates.json
           if git diff --cached --quiet; then
-            echo "index.html 无变化，跳过提交"
+            echo "无变化，跳过提交"
           else
-            git commit -m "chore: 自动更新日报 $(TZ=Asia/Shanghai date +%F)"
+            if [ "${{ steps.run.outputs.report_updated }}" = "true" ]; then
+              GEN=$(grep -oP "生成日期：\K[0-9-]+" dividend_index_report.html | head -1)
+              MSG="chore: 自动更新日报 ${GEN}"
+            else
+              MSG="chore: 刷新扫描缓存种子 $(TZ=Asia/Shanghai date +%F)"
+            fi
+            git commit -m "$MSG"
             git push https://x-access-token:${GITHUB_TOKEN}@github.com/datafilil/dividend-red-index.git HEAD:main
           fi
