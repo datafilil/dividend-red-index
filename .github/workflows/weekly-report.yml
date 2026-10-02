@@ -1,13 +1,22 @@
 name: 红利指数日报（生成 + 推送线上）
 
 # 触发方式（GitHub Actions cron 用 UTC，北京 = UTC+8）：
-#   工作日北京 23:30 / 23:50 各一次 —— 中证官网当日数据常延迟到 23:00 才更新，
-#   故分两次、留一次补跑。数据未前进时脚本产出旧日期报告，线上 /ingest 会拒绝
-#   （stored=false），重复触发安全，不会把新报告覆盖回旧版本。
+#   GitHub 自带 schedule：北京 18:20 起每 45 分钟轮询（cron 无法精确表达 45 分钟步长，
+#   下方 4 行等价还原“每 45 分钟”的 3 小时周期）。数据源常延迟到 ~23:00 北京才更新，
+#   故拉长轮询窗口、多触发几次以兜住迟到数据。
+#   注：用户曾因“每 20 分钟”高频触发被 GitHub 调度器丢弃/合并而失败；每 45 分钟已显著
+#   降频，且本 workflow 的 concurrency 串行化 + report_updated 守卫可防并发 push 竞态。
+#   另：Worker cron 也会每 25 分钟经 repository_dispatch 叫醒本 workflow（见 wrangler.toml），
+#   两条独立触发通道互为冗余。
 on:
   schedule:
-    - cron: '30 15 * * 1-5'   # 北京 23:30
-    - cron: '50 15 * * 1-5'   # 北京 23:50（补跑）
+    # 北京 18:20 起每 45 分钟（UTC 10:20 起；4 行还原 3 小时周期，60 不被 45 整除只能展开）
+    - cron: '20 10,13,16,19,22,1,4,7 * * *'
+    - cron: '5 11,14,17,20,23,2,5,8 * * *'
+    - cron: '50 11,14,17,20,23,2,5,8 * * *'
+    - cron: '35 12,15,18,21,0,3,6,9 * * *'
+  repository_dispatch:  # 由 Cloudflare Worker cron 经 GitHub API 叫醒（冗余通道）
+    types: [trigger-weekly-report]
   workflow_dispatch:  # 仓库 Actions 页可手动点 "Run workflow" 触发
     inputs:
       force:
