@@ -105,7 +105,9 @@ jobs:
           # 扫描缓存种子：始终尝试回写（7 天守卫保证不会每日重扫）。
           # 收敛锚点 anchor.json：记录“首次探测到官网更新的时点”，供脚本跨 CI 任务收敛到 +30min。
           # 注意：.gitignore 含 cache/，已追踪文件也需 -f 才能 add（否则被 ignore 拒绝并报错）。
-          git add -f cache/add_candidates.json cache/anchor.json
+          #       anchor.json 仅在“首次探测到更新”的轮询中才生成，故用 [ -f ] 守卫避免文件缺失时报错。
+          git add -f cache/add_candidates.json
+          [ -f cache/anchor.json ] && git add -f cache/anchor.json
           if git diff --cached --quiet; then
             echo "无变化，跳过提交"
           else
