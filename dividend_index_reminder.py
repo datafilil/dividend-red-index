@@ -46,11 +46,14 @@ CACHE_DIR    = os.path.join(HERE, "cache")  # 全历史日线本地缓存(增量
 CACHE_P      = os.path.join(CACHE_DIR, f"{PRIMARY_CODE.lower()}.json")
 CACHE_B      = os.path.join(CACHE_DIR, f"{BENCH_CODE}.json")
 CONS_CACHE   = os.path.join(CACHE_DIR, f"{INDICATOR_CODE}cons.json")  # 成分股缓存(取数失败降级用)
-# ---------- 预检: 官网数据日期未前进时立即退出(轮询友好) ----------
-# 工作流在北京 15:28–23:58 每 10 分钟触发一次, 但中证官网"当日数据"的发布时间不固定(常见 18:00–23:00,
-# 偶发更晚)。若每次触发都跑全量(全市场扫描等重活)会反复空跑、也白白夯数据源, 故先用一次极轻量的
-# 行情请求读"官网最新交易日", 未超过已发布报告的数据日期即立刻退出 →
-# 效果: 每个交易日只有"官网数据真正更新后的第一次触发"才跑全量, 其余轮询都是一次 HTTP 就结束。
+# ---------- 预检 + 收敛: 轮询友好, 且以"首次探测到官网更新的时点"为锚收敛到 +30 分钟 ----------
+# 中证官网"当日数据"的发布时间不固定(常见 18:00–23:00, 偶发更晚; 也有收盘后不久即更新的)。
+# 为兼顾"尽早探测"与"不漏掉迟到更新", 触发通道(Worker/CI)在「北京时间 15:00 → 次日 00:50」高频轮询,
+# 但每次仅用一次极轻量行情请求读"官网最新交易日":
+#   ① 未超过已发布报告的数据日期 → 立刻退出(一次 HTTP 就结束, 不空跑重活);
+#   ② 已前进 → 把"首次探测到更新"的时点记为锚点 first_seen, 并收敛: 必须等到 first_seen + 30 分钟
+#      才跑全量, 以规避官网 perf/indicator/成分 等文件分批发布导致的"早期数据不全"。
+# 效果: 无论官网几点更新, 报告实际生成时点都收敛到「首次探测到更新 + 30 分钟」, 与固定 CRON 起点解耦。
 # 本地调试需强制全量跑: 命令行加 --force, 或设环境变量 FORCE_RUN=1。
 def committed_data_date():
     """已发布报告中的数据日期(YYYY-MM-DD); 读不到返回 None。"""
@@ -91,16 +94,65 @@ DATA_NOTE = ("数据来源：中证指数有限公司官网 csindex.com.cn（指
              "40 日收益差在主标的与基准的交易日交集上按 40 个交易日滚动计算。"
              "PE 分位由官网 peg 字段在自身历史中计算；股息率取自官网指标文件(000922 价格指数口径)。")
 
-# ---------- 执行预检: 数据未前进则立即退出(不进入全量取数) ----------
+# ============ 收敛锚点: 记录"首次探测到官网更新"的时点 ============
+# 锚点按数据日期存盘(cache/anchor.json, 随仓库回写, 跨 CI 任务持久化), 用于把报告生成
+# 收敛到「首次探测到更新 + CONVERGE_MINUTES」, 而非依赖某个固定 CRON 起点。
+ANCHOR_FILE = os.path.join(CACHE_DIR, "anchor.json")
+CONVERGE_MINUTES = 30  # 探测到官网更新后, 再等 30 分钟才跑全量(规避官网各文件分批发布的早期数据不全)
+_BJ = datetime.timezone(datetime.timedelta(hours=8))
+
+def _bjnow():
+    return datetime.datetime.now(_BJ)
+
+def _load_anchor():
+    try:
+        with open(ANCHOR_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_anchor(anchor):
+    # 只保留最近 20 个数据日期, 避免文件无限增长
+    try:
+        if len(anchor) > 20:
+            _keep = sorted(anchor.keys())[-20:]
+            anchor = {k: anchor[k] for k in _keep}
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(ANCHOR_FILE, "w", encoding="utf-8") as f:
+            json.dump(anchor, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[收敛] 写 anchor.json 失败(不影响本轮): {e}")
+
+# ---------- 执行预检 + 收敛: 数据未前进则立即退出; 已前进则收敛到 锚点+30分钟 ----------
 PREV_DATA_DATE = committed_data_date()
 if "--force" in sys.argv or os.environ.get("FORCE_RUN") == "1":
-    print(f"[预检] 指定强制全量跑(已发布数据日期={PREV_DATA_DATE}), 跳过预检")
+    print(f"[预检] 指定强制全量跑(已发布数据日期={PREV_DATA_DATE}), 跳过预检与收敛")
 else:
     _latest = latest_trade_date_light()
     if _latest and PREV_DATA_DATE and _latest <= PREV_DATA_DATE:
         print(f"[预检] 官网最新交易日 {_latest} 未超过已发布 {PREV_DATA_DATE} → 本轮跳过(等官网更新后自动续跑)")
         sys.exit(0)
-    print(f"[预检] 官网最新交易日={_latest} / 已发布={PREV_DATA_DATE} → 需要更新, 进入全量取数")
+    if not _latest:
+        print(f"[预检] 轻量取数失败(转为正常全量流程), 官网最新交易日=None / 已发布={PREV_DATA_DATE} → 进入全量取数")
+    else:
+        print(f"[预检] 官网最新交易日={_latest} / 已发布={PREV_DATA_DATE} → 官网数据已前进, 进入收敛判定")
+        anchor = _load_anchor()
+        _now = _bjnow()
+        if _latest not in anchor:
+            # 首次探测到本次更新: 记下锚点, 本轮只探测不生成, 等 +30min 后下一轮再生成
+            anchor[_latest] = _now.isoformat(timespec="seconds")
+            _save_anchor(anchor)
+            _wait = (_now + datetime.timedelta(minutes=CONVERGE_MINUTES)).isoformat(timespec="seconds")
+            print(f"[收敛] 首次探测到 {_latest} 更新于 {anchor[_latest]} (北京), 需等到 {_wait} (北京) 才跑全量")
+            sys.exit(0)
+        _first = datetime.datetime.fromisoformat(anchor[_latest])
+        _wait_until = _first + datetime.timedelta(minutes=CONVERGE_MINUTES)
+        if _now < _wait_until:
+            print(f"[收敛] 已探测到 {_latest} 更新于 {_first.isoformat(timespec='seconds')} (北京), "
+                  f"尚未到 +{CONVERGE_MINUTES}min({_wait_until.isoformat(timespec='seconds')} 北京), 本轮跳过")
+            sys.exit(0)
+        print(f"[收敛] 探测到 {_latest} 更新已超 {CONVERGE_MINUTES}min({_first.isoformat(timespec='seconds')} 北京), "
+              f"进入全量取数")
 
 # ============ 数据质量：交易日清洗 & 告警 ============
 # 背景：中证官网曾返回一行 2026-08-29(周六) 的伪数据，收盘价与次日 8/31 完全相同。

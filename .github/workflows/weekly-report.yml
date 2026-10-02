@@ -1,11 +1,12 @@
 name: 红利指数日报（生成 + 推送线上）
 
 # 触发方式（GitHub Actions cron 用 UTC，北京 = UTC+8）：
-#   GitHub 自带 schedule：北京 18:20 起每 45 分钟轮询（cron 无法精确表达 45 分钟步长，
-#   下方 4 行等价还原“每 45 分钟”的 3 小时周期）。数据源常延迟到 ~23:00 北京才更新，
-#   故拉长轮询窗口、多触发几次以兜住迟到数据。
-#   注：用户曾因“每 20 分钟”高频触发被 GitHub 调度器丢弃/合并而失败；每 45 分钟已显著
-#   降频，且本 workflow 的 concurrency 串行化 + report_updated 守卫可防并发 push 竞态。
+#   GitHub 自带 schedule：北京 18:20 起每 45 分钟（cron 无法精确表达 45 分钟步长，
+#   下方 4 行等价还原“每 45 分钟”的 3 小时周期）。这是 Worker dispatch 之外的“最后备份”。
+#   注：报告实际生成时点已与触发频率解耦——脚本内“收敛锚点 + 30 分钟”门控决定何时跑全量：
+#   无论哪个通道先探测到官网更新（Worker 从北京 15:00 起每 25 分轮询），都以“首次探测时点
+#   + 30 分钟”为基准才真正生成，规避官网 perf/indicator/成分 分批发布的早期数据不全。
+#   本 workflow 的 concurrency 串行化 + report_updated 守卫可防并发 push 竞态。
 #   另：Worker cron 也会每 25 分钟经 repository_dispatch 叫醒本 workflow（见 wrangler.toml），
 #   两条独立触发通道互为冗余。
 on:
@@ -102,8 +103,9 @@ jobs:
             git add index.html
           fi
           # 扫描缓存种子：始终尝试回写（7 天守卫保证不会每日重扫）。
+          # 收敛锚点 anchor.json：记录“首次探测到官网更新的时点”，供脚本跨 CI 任务收敛到 +30min。
           # 注意：.gitignore 含 cache/，已追踪文件也需 -f 才能 add（否则被 ignore 拒绝并报错）。
-          git add -f cache/add_candidates.json
+          git add -f cache/add_candidates.json cache/anchor.json
           if git diff --cached --quiet; then
             echo "无变化，跳过提交"
           else
