@@ -219,10 +219,10 @@ th{color:#6b7280;font-weight:600;background:#fafbfc}
 <details><summary style="cursor:pointer;font-weight:600;color:#0f172a;margin:4px 0">当前样本概览（点击展开/收起）</summary>
 <div class="refbox" style="margin-top:4px">
   <p>成分股 <b>100</b> 只；前十大权重合计 <b>21.5%</b>；
-  成分股股息率加权均值(最近会计年度) <b>—</b>
+  成分股股息率加权均值(最近会计年度) <b>3.63%</b>
   （个股价息率取自东方财富行情，为参照口径，非中证官方选样口径）。</p>
   <table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>权重</th><th>股息率(年)</th></tr></thead>
-  <tbody><tr><td>1</td><td>601919</td><td>中远海控</td><td>3.204%</td><td>—</td></tr><tr><td>2</td><td>603565</td><td>中谷物流</td><td>2.284%</td><td>—</td></tr><tr><td>3</td><td>600256</td><td>广汇能源</td><td>2.277%</td><td>—</td></tr><tr><td>4</td><td>600188</td><td>兖矿能源</td><td>2.260%</td><td>—</td></tr><tr><td>5</td><td>601699</td><td>潞安环能</td><td>2.146%</td><td>—</td></tr><tr><td>6</td><td>600546</td><td>山煤国际</td><td>1.993%</td><td>—</td></tr><tr><td>7</td><td>601101</td><td>昊华能源</td><td>1.886%</td><td>—</td></tr><tr><td>8</td><td>600985</td><td>淮北矿业</td><td>1.870%</td><td>—</td></tr><tr><td>9</td><td>601666</td><td>平煤股份</td><td>1.804%</td><td>—</td></tr><tr><td>10</td><td>601168</td><td>西部矿业</td><td>1.801%</td><td>—</td></tr></tbody></table>
+  <tbody><tr><td>1</td><td>601919</td><td>中远海控</td><td>3.204%</td><td>—</td></tr><tr><td>2</td><td>603565</td><td>中谷物流</td><td>2.284%</td><td>—</td></tr><tr><td>3</td><td>600256</td><td>广汇能源</td><td>2.277%</td><td>0.94%</td></tr><tr><td>4</td><td>600188</td><td>兖矿能源</td><td>2.260%</td><td>1.03%</td></tr><tr><td>5</td><td>601699</td><td>潞安环能</td><td>2.146%</td><td>—</td></tr><tr><td>6</td><td>600546</td><td>山煤国际</td><td>1.993%</td><td>2.71%</td></tr><tr><td>7</td><td>601101</td><td>昊华能源</td><td>1.886%</td><td>—</td></tr><tr><td>8</td><td>600985</td><td>淮北矿业</td><td>1.870%</td><td>—</td></tr><tr><td>9</td><td>601666</td><td>平煤股份</td><td>1.804%</td><td>—</td></tr><tr><td>10</td><td>601168</td><td>西部矿业</td><td>1.801%</td><td>—</td></tr></tbody></table>
   <p class="refnote">仅列前十大权重，全部100只见官网权重文件（autofile/closeweight）。</p>
 </div>
 </details>
@@ -235,10 +235,10 @@ th{color:#6b7280;font-weight:600;background:#fafbfc}
   ③ 过去一年日均成交金额位于中证全指样本空间前90%；④ 过去三年股利支付率均值在 0～1 之间。</p>
   <p><b>剔除候选参照</b>（当前样本中股息率最低的20只，按公告惯例20进20出取满额；双维度风险预警，均基于东方财富分红实施数据自算）：
   ① <b>股息率(年) ≤ 0.5%</b> 触发缓冲区硬条件①（红色）；② <b>连续分红 &lt; 3 年</b> 触发样本空间硬条件「过去三年连续现金分红」（红色）。
-  本批 0/0 只触发至少一项风险标记。
+  本批 0/20 只触发至少一项风险标记。
   由于完整选样需全市场「过去三年平均股息率」排名（官方未公开逐股数据），下表仅为规则参照，<b>不构成调整名单预测</b>。</p>
   <table><thead><tr><th>代码</th><th>名称</th><th>股息率(年)</th><th>连续分红(年)</th><th>风险标记</th></tr></thead>
-  <tbody></tbody></table>
+  <tbody><tr><td>600096</td><td>云天化</td><td class=''>0.72%</td><td>5</td><td class=''>达标</td></tr><tr><td>600585</td><td>海螺水泥</td><td class=''>0.74%</td><td>19</td><td class=''>达标</td></tr><tr><td>002540</td><td>亚太科技</td><td class=''>0.80%</td><td>12</td><td class=''>达标</td></tr><tr><td>600256</td><td>广汇能源</td><td class=''>0.94%</td><td>5</td><td class=''>达标</td></tr><tr><td>000090</td><td>天健集团</td><td class=''>0.99%</td><td>17</td><td class=''>达标</td></tr><tr><td>600188</td><td>兖矿能源</td><td class=''>1.03%</td><td>27</td><td class=''>达标</td></tr><tr><td>000672</td><td>上峰材料</td><td class=''>1.06%</td><td>13</td><td class=''>达标</td></tr><tr><td>600273</td><td>嘉化能源</td><td class=''>1.29%</td><td>13</td><td class=''>达标</td></tr><tr><td>000408</td><td>藏格矿业</td><td class=''>1.42%</td><td>5</td><td class=''>达标</td></tr><tr><td>002737</td><td>葵花药业</td><td class=''>1.75%</td><td>12</td><td class=''>达标</td></tr><tr><td>002756</td><td>永兴材料</td><td class=''>1.80%</td><td>11</td><td class=''>达标</td></tr><tr><td>002233</td><td>塔牌集团</td><td class=''>1.90%</td><td>19</td><td class=''>达标</td></tr><tr><td>000983</td><td>山西焦煤</td><td class=''>1.94%</td><td>25</td><td class=''>达标</td></tr><tr><td>600028</td><td>中国石化</td><td class=''>1.99%</td><td>16</td><td class=''>达标</td></tr><tr><td>600123</td><td>兰花科创</td><td class=''>2.19%</td><td>8</td><td class=''>达标</td></tr><tr><td>600737</td><td>中粮糖业</td><td class=''>2.32%</td><td>7</td><td class=''>达标</td></tr><tr><td>600282</td><td>南钢股份</td><td class=''>2.36%</td><td>10</td><td class=''>达标</td></tr><tr><td>600177</td><td>雅戈尔</td><td class=''>2.39%</td><td>24</td><td class=''>达标</td></tr><tr><td>002043</td><td>兔宝宝</td><td class=''>2.50%</td><td>16</td><td class=''>达标</td></tr><tr><td>600373</td><td>中文传媒</td><td class=''>2.66%</td><td>15</td><td class=''>达标</td></tr></tbody></table>
   <p style="margin-top:10px"><b>纳入候选参照</b>（全市场按官方选样规则近似筛选：连续3个会计年度分红+支付率0~1+总市值前80%，按三年平均股息率排名，非成分股Top100中取前20；数据生成于 2026-09-14，每7天刷新）：当前头名 <b>泸州老窖 7.77%</b>，
   共 692 只过资格线、非成分股进入Top100 50 只。</p>
   <details><summary style="cursor:pointer"><b>纳入候选 Top20（点击展开/收起）</b></summary>
