@@ -1423,6 +1423,8 @@ cons_html = f"""
 
 event_study_section = ""  # ⑤ 指数纳入效应段已于 2026-09-20 从周报移除；event_study.py 仍可作独立工具运行
 
+gen_at = _bjnow().strftime("%Y-%m-%d %H:%M:%S")  # 报告生成时间戳（北京时间，到秒）
+
 html = f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1535,7 +1537,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 
 {cons_html}
 
-<div class="note">{DATA_NOTE}<br>本报告由自动化脚本生成，仅供研究与跟踪参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。</div>
+<div class="note">{DATA_NOTE}<br>本报告由自动化脚本生成，仅供研究与跟踪参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。<br><span style="font-size:12px;color:#999">报告生成时间：{gen_at}（北京时间）</span></div>
 </div></body></html>"""
 
 # ---------- 报告发布守卫: 仅当数据日期较已发布版本前进时才写入/发布 ----------
