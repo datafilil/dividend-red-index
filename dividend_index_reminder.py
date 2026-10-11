@@ -59,7 +59,7 @@ def committed_data_date():
     """已发布报告中的数据日期(YYYY-MM-DD); 读不到返回 None。"""
     try:
         s = open(REPORT_FILE, encoding="utf-8").read()
-        mm = re.search(r"生成日期：(\d{4}-\d{2}-\d{2})", s)
+        mm = re.search(r"数据日期：(\d{4}-\d{2}-\d{2})", s)
         return mm.group(1) if mm else None
     except Exception:
         return None
@@ -1482,7 +1482,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 <body><div class="wrap">
 <div class="head">
   <h1>红利指数低频提醒</h1>
-  <div class="sub">主标的：{PRIMARY_CODE} {PRIMARY_NAME} ｜ 基准：{BENCH_CODE} {BENCH_NAME} ｜ 生成日期：{last_date}</div>
+  <div class="sub">主标的：{PRIMARY_CODE} {PRIMARY_NAME} ｜ 基准：{BENCH_CODE} {BENCH_NAME} ｜ 数据日期：{last_date} ｜ 生成日期：{gen_at}（北京时间）</div>
 </div>
 <div class="ok"><b>说明：</b>主标的 <b>H00922 中证红利全收益指数</b>（含分红再投资），基准 <b>H00985 中证全指全收益</b>（同为全收益口径，两侧可比）。全部数据来自中证指数官网（免费、无需授权，含 2000 年至今完整历史）。</div>
 
@@ -1537,7 +1537,7 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
 
 {cons_html}
 
-<div class="note">{DATA_NOTE}<br>本报告由自动化脚本生成，仅供研究与跟踪参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。<br><span style="font-size:12px;color:#999">报告生成时间：{gen_at}（北京时间）</span></div>
+<div class="note">{DATA_NOTE}<br>本报告由自动化脚本生成，仅供研究与跟踪参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。</div>
 </div></body></html>"""
 
 # ---------- 报告发布守卫: 仅当数据日期较已发布版本前进时才写入/发布 ----------
