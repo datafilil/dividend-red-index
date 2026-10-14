@@ -123,11 +123,49 @@ def _save_anchor(anchor):
     except Exception as e:
         print(f"[收敛] 写 anchor.json 失败(不影响本轮): {e}")
 
+# ---------- 今日已完成锁: 一旦当天数据(官网最新交易日)被成功取回并出报, 当日剩余 cron 直接早退 ----------
+# 连轻量 HTTP 都不发, 彻底停掉当天的取数/计算/提交空转。跨日(local_date 变化)自动解锁。
+# 与锚点收敛的区别: 锚点解决"官网分批发布导致早期数据不全"; 今日锁解决"当天数据已齐后仍反复空转"。
+DONE_FILE = os.path.join(CACHE_DIR, "done_today.json")
+
+def _today_bj_date():
+    return _bjnow().date().isoformat()
+
+def _load_done():
+    try:
+        with open(DONE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_done(d):
+    try:
+        with open(DONE_FILE, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def _emit_today_done(val):
+    g = os.environ.get("GITHUB_OUTPUT")
+    if g:
+        try:
+            with open(g, "a", encoding="utf-8") as f:
+                f.write(f"today_done={'true' if val else 'false'}\n")
+        except Exception:
+            pass
+
 # ---------- 执行预检 + 收敛: 数据未前进则立即退出; 已前进则收敛到 锚点+30分钟 ----------
 PREV_DATA_DATE = committed_data_date()
 if "--force" in sys.argv or os.environ.get("FORCE_RUN") == "1":
     print(f"[预检] 指定强制全量跑(已发布数据日期={PREV_DATA_DATE}), 跳过预检与收敛")
 else:
+    # —— 今日锁: 当天数据已取到并出报, 当日剩余 cron 早退(不发请求) ——
+    _done = _load_done()
+    if _done.get("local_date") == _today_bj_date() and _done.get("data_date") and _done.get("data_date") == PREV_DATA_DATE:
+        print(f"[今日锁] 本地 {_today_bj_date()} 已成功取到数据日 {PREV_DATA_DATE} 并出报 → 当日剩余 cron 早退(不发请求)")
+        _emit_today_done(True)
+        sys.exit(0)
+    _emit_today_done(False)
     _latest = latest_trade_date_light()
     if _latest and PREV_DATA_DATE and _latest <= PREV_DATA_DATE:
         print(f"[预检] 官网最新交易日 {_latest} 未超过已发布 {PREV_DATA_DATE} → 本轮跳过(等官网更新后自动续跑)")
@@ -1546,7 +1584,10 @@ old_dd = committed_data_date()
 REPORT_UPDATED = (old_dd is None) or (new_dd > old_dd)
 if REPORT_UPDATED:
     open(REPORT_FILE, "w", encoding="utf-8").write(html)
-    print(f"[报告] 数据日期 {new_dd} 较已发布 {old_dd} 前进, 已写入报告")
+    # 记录今日锁: 当天数据已取, 后续 cron 早退
+    _save_done({"local_date": _today_bj_date(), "data_date": new_dd,
+                "at": _bjnow().isoformat(timespec="seconds")})
+    print(f"[报告] 数据日期 {new_dd} 较已发布 {old_dd} 前进, 已写入报告(今日锁已记录)")
 else:
     print(f"[报告] 数据日期仍为 {new_dd} (未前进), 跳过写入与发布(避免提前锁定 T-1)")
 
@@ -1566,6 +1607,7 @@ if gh_out:
     try:
         with open(gh_out, "a", encoding="utf-8") as f:
             f.write(f"report_updated={'true' if REPORT_UPDATED else 'false'}\n")
+            f.write(f"today_done={'false'}\n")  # 正常结束路径均为未锁(锁命中已在早退处写 true)
     except Exception:
         pass
 

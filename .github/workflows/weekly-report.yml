@@ -91,7 +91,8 @@ jobs:
       #   回写仓库可避免“种子卡在旧日期 → 每次 CI 都重扫 91 页”的浪费（原瑕疵）。
       # 线上 Worker+KV 仍保留作备份。
       - name: 回写仓库（Pages index.html + 扫描缓存种子）
-        if: steps.run.outcome == 'success'
+        # 今日锁命中(today_done=true)时彻底跳过回写: 当天数据已齐, 不再产生任何 git 操作
+        if: steps.run.outcome == 'success' && steps.run.outputs.today_done != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -108,6 +109,8 @@ jobs:
           #       anchor.json 仅在“首次探测到更新”的轮询中才生成，故用 [ -f ] 守卫避免文件缺失时报错。
           git add -f cache/add_candidates.json
           [ -f cache/anchor.json ] && git add -f cache/anchor.json
+          # 今日锁状态: 出报那轮写入, 供后续 cron 命中后早退(跨日自动解锁)
+          [ -f cache/done_today.json ] && git add -f cache/done_today.json
           if git diff --cached --quiet; then
             echo "无变化，跳过提交"
           else
