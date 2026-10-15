@@ -1,21 +1,19 @@
 name: 红利指数日报（生成 + 推送线上）
 
 # 触发方式（GitHub Actions cron 用 UTC，北京 = UTC+8）：
-#   GitHub 自带 schedule：北京 18:20 起每 45 分钟（cron 无法精确表达 45 分钟步长，
-#   下方 4 行等价还原“每 45 分钟”的 3 小时周期）。这是 Worker dispatch 之外的“最后备份”。
-#   注：报告实际生成时点已与触发频率解耦——脚本内“收敛锚点 + 30 分钟”门控决定何时跑全量：
-#   无论哪个通道先探测到官网更新（Worker 从北京 15:00 起每 25 分轮询），都以“首次探测时点
-#   + 30 分钟”为基准才真正生成，规避官网 perf/indicator/成分 分批发布的早期数据不全。
-#   本 workflow 的 concurrency 串行化 + report_updated 守卫可防并发 push 竞态。
-#   另：Worker cron 也会每 25 分钟经 repository_dispatch 叫醒本 workflow（见 wrangler.toml），
-#   两条独立触发通道互为冗余。
+#   GitHub 自带 schedule：北京 19:00–23:50 每 25 分钟（UTC 11:00–15:50）。这是 Worker dispatch 之外的“最后备份”。
+#   报告实际生成时点由脚本内三重门控决定，与触发频率解耦：
+#   - 时间门控：每天 19:26(北京)起才取数——官网数据傍晚~深夜放出(实测首现 17:01~23:21, 中位≈19:30)，19:26 前完全不取数；
+#   - 收敛锚点：首探到官网更新后 +30 分钟才跑全量，规避 perf/indicator/成分 分批发布的早期数据不全；
+#   - 今日锁：当天数据取到并出报后, 当日剩余 cron 早退, 不再空转。
+#   本 workflow 的 concurrency 串行化 + report_updated/today_done 守卫可防并发 push 竞态。
+#   另：Worker cron(7-16 北京)也会每 25 分钟经 repository_dispatch 叫醒本 workflow（见 di_deploy/wrangler.toml），
+#   两条独立触发通道互为冗余；Worker 白天 dispatch 会被脚本“时间门控”早退拦截。
 on:
   schedule:
-    # 北京 18:20 起每 45 分钟（UTC 10:20 起；4 行还原 3 小时周期，60 不被 45 整除只能展开）
-    - cron: '20 10,13,16,19,22,1,4,7 * * *'
-    - cron: '5 11,14,17,20,23,2,5,8 * * *'
-    - cron: '50 11,14,17,20,23,2,5,8 * * *'
-    - cron: '35 12,15,18,21,0,3,6,9 * * *'
+    # 北京 19:00–23:50 每 25 分钟（UTC 11:00–15:50）；19:26 前由脚本“时间门控”早退, 19:00/19:25 两轮为无操作占位。
+    # 数据最晚实测 23:21 放出, 故 23:50 前覆盖；节假日延至次日中午的数据, 当天 19:00 后轮次即可捕获。
+    - cron: '0,25,50 11-15 * * *'
   repository_dispatch:  # 由 Cloudflare Worker cron 经 GitHub API 叫醒（冗余通道）
     types: [trigger-weekly-report]
   workflow_dispatch:  # 仓库 Actions 页可手动点 "Run workflow" 触发

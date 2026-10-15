@@ -154,6 +154,16 @@ def _emit_today_done(val):
         except Exception:
             pass
 
+# ---------- 时间门控: 每天 19:26(北京)起才开始取数 ----------
+# 中证官网指数数据(perf/indicator/成分)通常在收盘后傍晚~深夜才放出(实测首现 17:01~23:21,
+# 中位数≈19:30), 故限定 19:26 前完全不取数、不计算、不提交, 省掉白天的无效轮询空转。
+# --force / FORCE_RUN=1 时绕过(手动/调试用)。
+if not ("--force" in sys.argv or os.environ.get("FORCE_RUN") == "1"):
+    _bn = _bjnow()
+    if (_bn.hour, _bn.minute) < (19, 26):
+        print(f"[时间门控] 当前北京 {_bn:%H:%M} 早于 19:26 取数起点 → 本轮跳过(不取数)")
+        sys.exit(0)
+
 # ---------- 执行预检 + 收敛: 数据未前进则立即退出; 已前进则收敛到 锚点+30分钟 ----------
 PREV_DATA_DATE = committed_data_date()
 if "--force" in sys.argv or os.environ.get("FORCE_RUN") == "1":
