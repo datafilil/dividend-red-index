@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中证红利全收益（H00922）夏普比率测算</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f6f8fa; --ink:#1f2328; --muted:#57606a;
+    --line:#d0d7de; --accent:#0a66c2; --pos:#cf222e; --neg:#1a7f37;
+  }
+  body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);max-width:880px;margin:24px auto;padding:0 18px;line-height:1.6;}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:center}
+  th{background:#eef1f4;font-weight:600}
+  input[type=number]{width:72px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;
+    font-size:13px;text-align:center;background:#fff;color:var(--ink)}
+  .rf-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .rf-row label{font-weight:600;font-size:14px}
+  .note{font-size:12.5px;color:var(--muted);margin-top:10px}
+  .warn{background:#fff8e6;border:1px solid #f0d58c;border-radius:8px;padding:12px 14px;font-size:13px;margin-bottom:16px}
+  code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  .big{font-size:15px;font-weight:700;color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>中证红利全收益（H00922）夏普比率测算</h1>
+<div class="sub">数据快照：中证指数官网 H00922（更新 2026-09-30）· 波动率由 000922 价格指数日线自算（与全收益口径差 &lt;0.5pp）</div>
+
+<div class="warn">
+  ⚠️ 当前 2026-09-30 快照的夏普≈1.0 属于<b>时点偏高</b>：近期红利股反弹把滚动年化收益抬到与波动率接近。
+  拉长到中性窗口（国金证券/Wind，截至 2026-05）长期夏普约 <b>0.4–0.6</b>（Rf=0），Rf=2.5% 时约 0.3–0.4。
+  单看当前官网快照会高估，建议结合下方长期参照。
+</div>
+
+<div class="card">
+  <div class="rf-row">
+    <label>无风险利率 Rf（%）</label>
+    <input type="number" id="rf" value="2.0" step="0.1" oninput="calc()">
+    <span class="note" style="margin:0">常用：0%（申万宏源口径） / 2% / 2.5%（1年期国债均值附近）</span>
+  </div>
+  <table>
+    <thead><tr><th>窗口</th><th>年化收益 %<br>(CS官网)</th><th>年化波动率 %<br>(日线自算)</th><th>夏普比率</th></tr></thead>
+    <tbody>
+      <tr><td>近一年</td>
+        <td><input type="number" id="r1" value="14.30" step="0.01" oninput="calc()"></td>
+        <td><input type="number" id="v1" value="14.48" step="0.01" oninput="calc()"></td>
+        <td class="big" id="s1">—</td></tr>
+      <tr><td>近三年</td>
+        <td><input type="number" id="r3" value="15.46" step="0.01" oninput="calc()"></td>
+        <td><input type="number" id="v3" value="15.60" step="0.01" oninput="calc()"></td>
+        <td class="big" id="s3">—</td></tr>
+      <tr><td>近五年</td>
+        <td><input type="number" id="r5" value="16.01" step="0.01" oninput="calc()"></td>
+        <td><input type="number" id="v5" value="16.10" step="0.01" oninput="calc()"></td>
+        <td class="big" id="s5">—</td></tr>
+    </tbody>
+  </table>
+  <div class="note">公式：夏普 =（年化收益 − Rf）/ 年化波动率。年化波动 = 日收益标准差 × √252（业内通用口径）。</div>
+</div>
+
+<div class="card">
+  <div style="font-weight:600;margin-bottom:8px">长期中性参照（国金证券 / Wind，窗口截至 2026-05，同源数据）</div>
+  <table>
+    <thead><tr><th>窗口</th><th>年化收益 %</th><th>年化波动率 %</th><th>夏普 Rf=0</th><th>夏普 Rf=2%</th><th>夏普 Rf=2.5%</th></tr></thead>
+    <tbody>
+      <tr><td>近3年</td><td>7.9</td><td>14.6</td><td>0.54</td><td>0.40</td><td>0.37</td></tr>
+      <tr><td>近5年</td><td>6.7</td><td>15.9</td><td>0.42</td><td>0.30</td><td>0.26</td></tr>
+      <tr><td>近10年</td><td>8.9</td><td>16.1</td><td>0.55</td><td>0.43</td><td>0.40</td></tr>
+    </tbody>
+  </table>
+  <div class="note">该组数据收益/波动同源于 Wind，与上方官网快照仅窗口结束日不同（早约 4 个月）；可见当前官网快照确因 2026 年反弹而偏高。</div>
+</div>
+
+<script>
+function calc(){
+  var rf=parseFloat(document.getElementById('rf').value)||0;
+  [['r1','v1','s1'],['r3','v3','s3'],['r5','v5','s5']].forEach(function(p){
+    var r=parseFloat(document.getElementById(p[0]).value)||0;
+    var v=parseFloat(document.getElementById(p[1]).value)||0;
+    var s=v?((r-rf)/v):0;
+    document.getElementById(p[2]).textContent=s.toFixed(2);
+  });
+}
+calc();
+</script>
+</body>
+</html>

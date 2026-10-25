@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>基金单位分红速算与对照 · 每份 0.061 元</title>
+<style>
+  :root{ --bg:#0f1420; --card:#182030; --ink:#e8edf6; --sub:#9fb0c8; --line:#2a3650;
+         --up:#ef4d4d; --down:#21a675; --acc:#f5a623; --blue:#5b9bff; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;
+       line-height:1.6;padding:24px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .meta{color:var(--sub);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:18px 20px;margin-bottom:16px}
+  .card h2{font-size:16px;margin:0 0 12px;color:var(--acc)}
+  .kv{display:flex;flex-wrap:wrap;gap:10px 28px;font-size:15px}
+  .kv b{color:var(--blue);font-variant-numeric:tabular-nums}
+  .calc{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0 14px}
+  input[type=number]{width:130px;background:#0c111c;border:1px solid var(--line);
+        color:var(--ink);border-radius:8px;padding:8px 10px;font-size:15px}
+  .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+  .delta{font-size:14px;margin-left:8px}
+  .note{color:var(--sub);font-size:13px;margin-top:10px}
+  svg{display:block;width:100%;height:auto;background:#0c111c;border-radius:8px}
+  .legend{font-size:12px;color:var(--sub);margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:center}
+  th{color:var(--sub);font-weight:600}
+  td.num{font-variant-numeric:tabular-nums}
+  .tag{padding:2px 8px;border-radius:6px;font-size:12px}
+  .tag.green{background:rgba(33,166,117,.18);color:var(--down)}
+  .tag.red{background:rgba(239,77,77,.18);color:var(--up)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>基金单位分红速算与对照</h1>
+  <div class="meta">数据日期：2026-10-13（北京时间） ｜ 基准分红：每 10 份 0.61 元 = 每份 <b>0.061</b> 元 ｜ 对照基准：中证红利指数 D/P2（官方最新 4.14%）</div>
+
+  <div class="card">
+    <h2>① 本次分红基本信息</h2>
+    <div class="kv">
+      <div>每份分红：<b>0.061 元</b></div>
+      <div>每 10 份分红：<b>0.61 元</b></div>
+      <div>分红形式：现金分红（默认）</div>
+      <div>口径：单次单位分红</div>
+    </div>
+    <div class="note">0.061 元为单次分红额。若基金一年内分红多次，年化单位分红 = 各次之和，下文速算按“单次即年化”与“需累计”两种情形分别提示。</div>
+  </div>
+
+  <div class="card">
+    <h2>② 分红率速算器（输入除息前净值实时算）</h2>
+    <div class="calc">
+      <label>除息前单位净值（元）：</label>
+      <input id="nav" type="number" value="1.473" step="0.001" min="0.01">
+      <span class="big" id="rate">4.14%</span>
+      <span class="delta" id="delta"></span>
+    </div>
+    <div class="note">分红率 = 每份分红 0.061 ÷ 除息前净值。默认 1.473 为“分红率 = 指数 D/P2(4.14%)”的平衡点净值。</div>
+    <table id="scenarios">
+      <thead><tr><th>除息前净值（元）</th><th>分红率</th><th>vs 指数 4.14%</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>③ 分红率 — 净值 关系曲线</h2>
+    <svg viewBox="0 0 680 340" id="curve"></svg>
+    <div class="legend">横轴：除息前单位净值（1.0–3.0 元）；纵轴：分红率%；蓝线 = 0.061/净值；橙色虚线 = 指数 D/P2 = 4.14%；红点 = 平衡点（净值 1.473，分红率 4.14%）。</div>
+  </div>
+
+  <div class="card">
+    <h2>④ 与中证红利指数股息率（近 5 年）对照</h2>
+    <svg viewBox="0 0 680 300" id="hist"></svg>
+    <div class="legend">年度指数股息率（反推近似值 TR/Price 法；官方 D/P2 最新 4.14%）。基金分红率需落在这一走廊附近，才说明“分红基本全额传递成分股股息”。</div>
+    <div class="note">说明：本页为按用户给定“每份 0.061 元”所做的速算与对照，未拉取具体基金历史分红（缺基金代码）。获取代码后可补充该基金成立以来历次每份分红、分红频率与真实分红率曲线。</div>
+  </div>
+</div>
+
+<script>
+const DIV = 0.061;          // 每份分红
+const IDX = 0.0414;         // 指数 D/P2
+const fmt = x => (x*100).toFixed(2) + '%';
+
+// 速算器
+const navEl = document.getElementById('nav');
+const rateEl = document.getElementById('rate');
+const deltaEl = document.getElementById('delta');
+function update(){
+  const nav = parseFloat(navEl.value);
+  if(!nav || nav<=0){ rateEl.textContent='--'; deltaEl.textContent=''; return; }
+  const r = DIV/nav;
+  rateEl.textContent = fmt(r);
+  const d = (r - IDX)*100;
+  if(d >= 0){ deltaEl.innerHTML = '<span class="tag green">高于指数 '+d.toFixed(2)+'pp</span>'; }
+  else { deltaEl.innerHTML = '<span class="tag red">低于指数 '+(-d).toFixed(2)+'pp</span>'; }
+}
+navEl.addEventListener('input', update);
+update();
+
+// 情景表
+const tb = document.querySelector('#scenarios tbody');
+[1.0,1.2,1.473,1.5,2.0,2.5,3.0].forEach(n=>{
+  const r = DIV/n; const d=(r-IDX)*100;
+  const tag = d>=0 ? '<span class="tag green">+'+d.toFixed(2)+'pp</span>'
+                   : '<span class="tag red">'+d.toFixed(2)+'pp</span>';
+  tb.insertAdjacentHTML('beforeend',
+    `<tr><td class="num">${n.toFixed(3)}</td><td class="num">${fmt(r)}</td><td>${tag}</td></tr>`);
+});
+
+// ③ 曲线图
+(function(){
+  const W=680,H=340,pad=46;
+  const x0=1.0,x1=3.0, y0=0, y1=0.07;
+  const X = v => pad + (v-x0)/(x1-x0)*(W-2*pad);
+  const Y = v => H-pad - (v-y0)/(y1-y0)*(H-2*pad);
+  let s = `<rect x="0" y="0" width="${W}" height="${H}" fill="#0c111c"/>`;
+  // grid + y labels
+  for(let p=0;p<=7;p+=1){ const y=Y(p/100);
+    s+=`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="#1c2638"/>`;
+    s+=`<text x="${pad-8}" y="${y+4}" fill="#9fb0c8" font-size="11" text-anchor="end">${p}%</text>`; }
+  // x labels
+  for(let v=1.0;v<=3.0001;v+=0.5){ const x=X(v);
+    s+=`<line x1="${x}" y1="${pad}" x2="${x}" y2="${H-pad}" stroke="#1c2638"/>`;
+    s+=`<text x="${x}" y="${H-pad+18}" fill="#9fb0c8" font-size="11" text-anchor="middle">${v.toFixed(1)}</text>`; }
+  // 4.14% 参考线
+  const yl=Y(IDX);
+  s+=`<line x1="${pad}" y1="${yl}" x2="${W-pad}" y2="${yl}" stroke="#f5a623" stroke-dasharray="6 5"/>`;
+  s+=`<text x="${W-pad-4}" y="${yl-6}" fill="#f5a623" font-size="11" text-anchor="end">指数 D/P2 4.14%</text>`;
+  // 曲线
+  let path='';
+  for(let v=x0; v<=x1+1e-9; v+=0.01){ const x=X(v), y=Y(DIV/v); path += (v===x0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1)+' '; }
+  s+=`<path d="${path}" fill="none" stroke="#5b9bff" stroke-width="2.5"/>`;
+  // 平衡点 1.473
+  const bx=X(0.061/IDX), by=Y(IDX);
+  s+=`<circle cx="${bx}" cy="${by}" r="5" fill="#ef4d4d"/>`;
+  s+=`<text x="${bx+8}" y="${by-8}" fill="#ef4d4d" font-size="11">平衡点 净值1.473 / 4.14%</text>`;
+  s+=`<text x="${pad}" y="${pad-14}" fill="#9fb0c8" font-size="12">分红率 = 0.061 ÷ 净值</text>`;
+  document.getElementById('curve').innerHTML = s;
+})();
+
+// ④ 年度指数股息率
+(function(){
+  const W=680,H=300,pad=46;
+  const data=[['2021',0.0426],['2022',0.0538],['2023',0.0540],['2024',0.0574],['2025',0.0522],['2026',0.0444]];
+  const y0=0.03,y1=0.065;
+  const X=i=> pad + i*(W-2*pad)/(data.length-1);
+  const Y=v=> H-pad - (v-y0)/(y1-y0)*(H-2*pad);
+  let s=`<rect width="${W}" height="${H}" fill="#0c111c"/>`;
+  for(let p=3;p<=6.5;p+=0.5){ const y=Y(p/100);
+    s+=`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="#1c2638"/>`;
+    s+=`<text x="${pad-8}" y="${y+4}" fill="#9fb0c8" font-size="11" text-anchor="end">${(p/100).toFixed(2)}</text>`; }
+  let path='';
+  data.forEach((d,i)=>{ const x=X(i),y=Y(d[1]); path+=(i===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1)+' '; });
+  s+=`<path d="${path}" fill="none" stroke="#5b9bff" stroke-width="2.5"/>`;
+  data.forEach((d,i)=>{ const x=X(i),y=Y(d[1]);
+    s+=`<circle cx="${x}" cy="${y}" r="4" fill="#5b9bff"/>`;
+    s+=`<text x="${x}" y="${y-10}" fill="#e8edf6" font-size="11" text-anchor="middle">${(d[1]*100).toFixed(2)}%</text>`;
+    s+=`<text x="${x}" y="${H-pad+18}" fill="#9fb0c8" font-size="11" text-anchor="middle">${d[0]}</text>`; });
+  // 官方 D/P2 4.14% 标记
+  const yl=Y(IDX);
+  s+=`<line x1="${pad}" y1="${yl}" x2="${W-pad}" y2="${yl}" stroke="#f5a623" stroke-dasharray="6 5"/>`;
+  s+=`<text x="${W-pad-4}" y="${yl-6}" fill="#f5a623" font-size="11" text-anchor="end">官方 D/P2 4.14%</text>`;
+  document.getElementById('hist').innerHTML=s;
+})();
+</script>
+</body>
+</html>

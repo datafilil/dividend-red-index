@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>中证红利 · 分析档案</title>
+<style>
+:root{--ink:#1c2530;--sub:#6b7785;--line:#e6eaef;--bg:#f6f8fa;--card:#fff;--acc:#2c6fb5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:34px 20px 60px}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+h1{font-size:22px;margin:0;font-weight:650;letter-spacing:-.3px}
+.kicker{font-size:12px;color:var(--sub)}
+.lead{color:var(--sub);font-size:13px;margin:0 0 22px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}
+.card{display:block;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:17px 18px;
+text-decoration:none;color:inherit;transition:.16s}
+.card:hover{border-color:#c9d6e4;box-shadow:0 4px 16px rgba(28,37,48,.07);transform:translateY(-1px)}
+.ct{font-size:15px;font-weight:640;margin-bottom:5px}
+.cd{font-size:12.5px;color:var(--sub);line-height:1.7;margin-bottom:11px;min-height:42px}
+.cf{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tag{font-size:10.5px;color:var(--acc);background:#eaf2fb;border-radius:3px;padding:1px 6px}
+.dt{margin-left:auto;font-size:11px;color:#9aa5b1;font-variant-numeric:tabular-nums}
+.foot{margin-top:26px;font-size:12px;color:var(--sub);border-top:1px solid var(--line);padding-top:14px;line-height:1.9}
+.foot a{color:var(--acc);text-decoration:none}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<div class="top"><h1>中证红利 · 分析档案</h1><span class="kicker">000922 / H00922 · 更新 2026-10-25</span></div>
+<p class="lead">围绕中证红利指数的旁支分析页，用于验证估值、趋势与持仓结构。日报正文见
+<a href="../index.html" style="color:var(--acc);text-decoration:none">首页报告</a>。</p>
+<div class="grid">
+<a class="card" href="./erp.html">
+  <div class="ct">ERP · 股债性价比</div>
+  <div class="cd">中证红利股息率与 10 年期国债收益率之差。含滚动 3 年 z 分数、分组前瞻收益与胜率。</div>
+  <div class="cf"><span class="tag">股债</span><span class="tag">均值回归</span><span class="dt">数据 2026-10-23</span></div>
+</a>
+<a class="card" href="./ma-days.html">
+  <div class="ct">各年跌破长期均线天数</div>
+  <div class="cd">按自然年统计全收益指数低于 MA250 / MA350 / MA500 的实际天数，进度刻度呈现年内位置。</div>
+  <div class="cf"><span class="tag">趋势</span><span class="tag">年内进度</span><span class="dt">数据 2026-10-23</span></div>
+</a>
+<a class="card" href="./etf-515180.html">
+  <div class="ct">ETF 515180 · 行业分布</div>
+  <div class="cd">易方达中证红利 ETF 画像：行业权重、银行四档细分（国有大行/股份行/城商行/农商行）、前十大重仓与分红记录。</div>
+  <div class="cf"><span class="tag">持仓</span><span class="tag">银行细分</span><span class="dt">数据 2026-10-23</span></div>
+</a>
+<a class="card" href="./dividend-yield.html">
+  <div class="ct">近五年股息率</div>
+  <div class="cd">基于中证指数官方 D/P2 口径的股息率走势，标注历史高低位区间。</div>
+  <div class="cf"><span class="tag">估值</span><span class="tag">股息率</span><span class="dt">数据 2026-10-13</span></div>
+</a>
+<a class="card" href="./dividend-calc.html">
+  <div class="ct">分红速算对照</div>
+  <div class="cd">每份 0.061 元单位分红对应的分红率、除息影响与持有收益速算。</div>
+  <div class="cf"><span class="tag">分红</span><span class="tag">速算</span><span class="dt">数据 2026-10-13</span></div>
+</a>
+<a class="card" href="./sharpe.html">
+  <div class="ct">全收益夏普测算</div>
+  <div class="cd">中证红利全收益（H00922）在不同无风险利率与窗口下的夏普比率测算。</div>
+  <div class="cf"><span class="tag">风险</span><span class="tag">夏普</span><span class="dt">数据 2026-10-07</span></div>
+</a>
+</div>
+<div class="foot">
+数据源：中证指数（行情、成分权重）、东方财富（10Y 国债、细分行业）、易方达「红色火箭」（ETF 净值/温度/分红）。<br>
+本页由本地脚本生成并随仓库发布，页面内容为静态快照，日期标注于各卡片右下角。
+</div>
+</div></body></html>
