@@ -1532,6 +1532,12 @@ th{{color:#6b7280;font-weight:600;background:#fafbfc}}
   <h1>红利指数低频提醒</h1>
   <div class="sub">主标的：{PRIMARY_CODE} {PRIMARY_NAME} ｜ 基准：{BENCH_CODE} {BENCH_NAME} ｜ 数据日期：{last_date} ｜ 生成日期：{gen_at}（北京时间）</div>
 </div>
+<div style="margin:-6px 0 14px;font-size:12.5px;color:#6b7785">
+  延伸分析：<a href="analysis/" style="color:#2c6fb5;text-decoration:none">分析档案</a> ·
+  <a href="analysis/erp.html" style="color:#2c6fb5;text-decoration:none">股债性价比 ERP</a> ·
+  <a href="analysis/ma-days.html" style="color:#2c6fb5;text-decoration:none">各年跌破均线</a> ·
+  <a href="analysis/etf-515180.html" style="color:#2c6fb5;text-decoration:none">ETF 持仓</a>
+</div>
 <div class="ok"><b>说明：</b>主标的 <b>H00922 中证红利全收益指数</b>（含分红再投资），基准 <b>H00985 中证全指全收益</b>（同为全收益口径，两侧可比）。全部数据来自中证指数官网（免费、无需授权，含 2000 年至今完整历史）。</div>
 
 <div class="grid">
