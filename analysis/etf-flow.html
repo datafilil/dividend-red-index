@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>红利类 ETF 资金流向 · 2026-10-23</title>
+<title>红利 vs 主流宽基 · ETF 资金流向 · 2026-10-23</title>
 <style>
 :root{--ink:#1c2530;--sub:#6b7785;--line:#e6eaef;--bg:#f6f8fa;--card:#fff}
 *{box-sizing:border-box}
@@ -9,165 +9,227 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,
 .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 56px}
 h1{font-size:21px;margin:0 0 3px;font-weight:650}
 h1 span{font-size:13px;color:var(--sub);font-weight:400;margin-left:6px}
-.sub{color:var(--sub);font-size:12.5px;margin-bottom:18px}
+.sub{color:var(--sub);font-size:12.5px;margin-bottom:16px}
 .sub b{color:var(--ink)}
+.verdict{background:#fff;border:1px solid var(--line);border-left:3px solid #c0392b;border-radius:9px;
+  padding:12px 16px 12px 14px;margin:0 0 16px;font-size:13px}
+.verdict ol{margin:4px 0 0;padding-left:20px}
+.verdict li{margin:3px 0}
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:16px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:13px 15px}
 .kpi .t{font-size:11.5px;color:var(--sub);margin-bottom:5px}
-.kpi .v{font-size:21px;font-weight:660;letter-spacing:-.3px}
+.kpi .v{font-size:20px;font-weight:660;letter-spacing:-.3px}
 .kpi .v i{font-size:11px;font-style:normal;color:var(--sub);margin-left:2px;font-weight:400}
 .kpi .n{font-size:11px;color:#95a0ab;margin-top:3px}
+.kpi.hl{border-color:#e6c9c4;background:#fdf8f7}
 .up{color:#c0392b}.down{color:#1e8449}.zero{color:#95a0ab}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
 .card h2{font-size:14px;margin:0 0 2px;font-weight:620}
 .card .cap{font-size:12px;color:var(--sub);margin-bottom:12px}
 table{width:100%;border-collapse:collapse}
 th{font-size:11.5px;color:var(--sub);font-weight:500;text-align:left;padding:0 8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:7px 8px;border-bottom:1px solid #f2f5f8;font-size:13px}
-td.nm{font-weight:500}
+td{padding:7px 8px;border-bottom:1px solid #f2f5f8;font-size:13px;white-space:nowrap}
+td.nm{font-weight:500;white-space:nowrap}
 td.nm b{font-weight:650}
 td.nm i{font-style:normal;font-size:11px;color:#95a0ab;margin-left:6px}
-.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.num{text-align:right;font-variant-numeric:tabular-nums}
 tr.grp td{border-bottom-color:#dde5ee;padding-top:11px;background:#fbfcfd}
 tr.grp td.nm{font-size:13.5px;font-weight:650}
 tr.grp td.nm i{font-weight:400}
 td.sp{font-weight:660;font-size:13.5px;background:#fbfcfd}
 td.cap2{color:#95a0ab;font-size:11.5px;background:#fbfcfd}
 tr.tot td{border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:660;background:#f8fafb}
-tr.tot.bench td{font-weight:600;color:#4a6572}
-.chart{width:100%;height:360px}
-.chart2{width:100%;height:680px}
+tr.tot.bench td{font-weight:600;color:#31586f;background:#f4f8fb}
+tr.diff td{font-weight:640;background:#fffdf6;color:#8a6d3b}
+tr.sub td{background:#fafbfc;font-weight:600;color:#4a6572;font-size:12.5px}
+.tag{display:inline-block;font-size:10.5px;line-height:1.5;padding:0 5px;border-radius:3px;
+  margin-left:6px;font-weight:500;vertical-align:1px}
+.t-a{background:#eaf1f8;color:#2b6cb0}.t-hk{background:#f2eefb;color:#6a5acd}.t-us{background:#eef1f3;color:#556b2f}
+.chart{width:100%;height:380px}
+.chart2{width:100%;height:400px}
+.chart3{width:100%;height:680px}
 .note{font-size:12px;color:var(--sub);line-height:1.95;padding:14px 16px;background:#fafbfc;border-radius:8px;border:1px solid var(--line)}
 .note b{color:var(--ink)}
 .note code{background:#eef2f6;border-radius:3px;padding:1px 4px;font-size:11.5px}
 .tw{overflow-x:auto}
 .flex{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
 .legend{font-size:11.5px;color:var(--sub)}
-@media(max-width:880px){.kpis{grid-template-columns:repeat(2,1fr)}.chart2{height:640px}}
+h2 .lg{font-size:11.5px;color:var(--sub);font-weight:400;margin-left:8px}
+@media(max-width:880px){.kpis{grid-template-columns:repeat(2,1fr)}.chart3{height:640px}}
 </style></head><body><div class="wrap">
-<h1>红利类 ETF 资金流向<span>2026-10-23</span></h1>
-<div class="sub">样本 <b>56 只</b>（红利类按规模取前 48 只，覆盖全市场红利 ETF 份额 <b>97.5%</b>）
+<h1>红利 vs 主流宽基 · ETF 资金流向<span>2026-10-23</span></h1>
+<div class="sub">红利类 <b>48 只</b>（覆盖全市场红利 ETF 份额 <b>97.5%</b>）
+｜ 主流宽基 <b>88 只 / 16 个指数</b>
 ｜ 净流入 = <b>Δ份额 × 收盘价</b>，即申购赎回带来的真实资金进出</div>
 
+<div class="verdict"><b>总对总：谁在吸金？</b><ol>
+<li><b>近 20 日</b>：红利 +7 亿（占期初规模 +0.3%）vs 宽基 +2,853 亿（+23.1%）→ <b>宽基占优</b> （差 -22.8 个百分点）</li>
+<li><b>近 60 日</b>：红利 -210 亿（占期初规模 -9.2%）vs 宽基 +3,295 亿（+26.6%）→ <b>宽基占优</b> （差 -35.8 个百分点）</li>
+<li><b>今年以来</b>：红利 +109 亿（占期初规模 +5.7%）vs 宽基 -12,551 亿（-46.6%）→ <b>红利占优</b> （差 +52.3 个百分点）</li>
+</ol></div>
+
 <div class="kpis">
-  <div class="kpi"><div class="t">当日净流入</div>
-    <div class="v up">+10.7<i>亿</i></div>
-    <div class="n">占规模 +0.52%</div></div>
-  <div class="kpi"><div class="t">近 20 日</div>
+  <div class="kpi hl"><div class="t">红利类 · 近 20 日</div>
     <div class="v up">+7.1<i>亿</i></div>
-    <div class="n">占规模 +0.34%</div></div>
-  <div class="kpi"><div class="t">近 60 日</div>
-    <div class="v down">-210<i>亿</i></div>
-    <div class="n">三个月趋势方向</div></div>
-  <div class="kpi"><div class="t">今年以来</div>
+    <div class="n">占 20 日前规模 +0.3%</div></div>
+  <div class="kpi"><div class="t">宽基合计 · 近 20 日</div>
+    <div class="v up">+2,853<i>亿</i></div>
+    <div class="n">占 20 日前规模 +23.1%</div></div>
+  <div class="kpi"><div class="t">红利 20 日份额</div>
+    <div class="v up">+1.1<i>%</i></div>
+    <div class="n">宽基 +19.6%</div></div>
+  <div class="kpi"><div class="t">红利类 · 今年以来</div>
     <div class="v up">+109<i>亿</i></div>
-    <div class="n">宽基 -6,423 亿</div></div>
-  <div class="kpi"><div class="t">红利类总规模</div>
-    <div class="v">2,066<i>亿</i></div>
-    <div class="n">48 只样本合计</div></div>
+    <div class="n">占年初规模 +5.7%</div></div>
+  <div class="kpi"><div class="t">宽基合计 · 今年以来</div>
+    <div class="v down">-12,551<i>亿</i></div>
+    <div class="n">占年初规模 -46.6%</div></div>
 </div>
 
 <div class="card">
-  <div class="flex"><h2 style="flex:1">近 60 个交易日累计净流入</h2>
-    <div class="legend">— 红利类　— 宽基对照（8 只）</div></div>
-  <div class="cap">累计值，起点归零；向上=资金净申购，向下=净赎回　｜　<b style="color:#c0392b">左轴=红利类</b>、<b style="color:#5b7c99">右轴=宽基对照</b>（量级差约 10 倍，故分轴）</div>
+  <div class="flex"><h2 style="flex:1">总对总：近 60 个交易日累计净流入</h2>
+    <div class="legend">— 红利类　— 主流宽基合计</div></div>
+  <div class="cap">累计值，起点归零；向上=净申购，向下=净赎回　｜　<b style="color:#c0392b">左轴=红利类</b>、
+    <b style="color:#31586f">右轴=宽基合计</b>（量级差约 10 倍，故分轴）</div>
   <div id="c1" class="chart"></div>
+</div>
+
+<div class="card">
+  <h2>总对总：区间汇总</h2>
+  <div class="cap">单位：亿元｜红色=净流入，绿色=净流出｜“/期初”＝区间净流入 ÷ <b>区间起点</b>规模（用起点而非当前，避免规模缩水把比例放大）</div>
+  <div class="tw"><table>
+    <thead><tr><th>类别</th><th class="num">只数</th><th class="num">规模</th>
+      <th class="num">当日</th>
+      <th class="num">近20日</th><th class="num">20日/期初</th>
+      <th class="num">近60日</th><th class="num">60日/期初</th>
+      <th class="num">今年以来</th><th class="num">YTD/期初</th></tr></thead>
+    <tbody><tr class="tot"><td class="nm">红利类<i>主看</i></td><td class="num">48</td><td class="num">2,066</td><td class="num up">+10.71</td><td class="num up">+7.10</td><td class="num up">+0.34%</td><td class="num down">-209.95</td><td class="num down">-9.17%</td><td class="num up">+108.96</td><td class="num up">+5.67%</td></tr>
+<tr class="tot bench"><td class="nm">主流宽基</td><td class="num">88</td><td class="num">13,945</td><td class="num up">+529.67</td><td class="num up">+2,853</td><td class="num up">+23.14%</td><td class="num up">+3,295</td><td class="num up">+26.61%</td><td class="num down">-12,551</td><td class="num down">-46.60%</td></tr>
+<tr class="diff"><td class="nm">差额（红利 − 宽基）<i>正值=更多钱流向红利</i></td><td class="num">—</td><td class="num">—</td><td class="num down">-518.96</td><td class="num down">-2,846</td><td class="num down">-22.80%</td><td class="num down">-3,505</td><td class="num down">-35.78%</td><td class="num up">+12,660</td><td class="num up">+52.27%</td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="card">
+  <div class="flex"><h2 style="flex:1">归一化对比：累计净流入占期初规模</h2>
+    <div class="legend">红利类（粗线）＋ 规模前 8 的宽基指数</div></div>
+  <div class="cap">用「累计净流入 ÷ 曲线起点规模」衡量资金流入强度，消除体量差后可横向比较；同一位置上更高的线＝资金更偏好的方向</div>
+  <div id="c2" class="chart2"></div>
+</div>
+
+<div class="card">
+  <h2>展开①：宽基指数分组<span class="lg">按指数汇总该指数下规模达标的全部 ETF</span></h2>
+  <div class="cap">单位：亿元｜覆盖＝所选 ETF 占该指数全部 ETF 份额的比例｜20 日份额＝份额加权变化率</div>
+  <div class="tw"><table>
+    <thead><tr><th>指数</th><th class="num">规模</th>
+      <th class="num">当日</th><th class="num">近5日</th><th class="num">近20日</th>
+      <th class="num">近60日</th><th class="num">今年以来</th><th class="num">20日份额</th></tr></thead>
+    <tbody><tr><td class="nm"><b>沪深300</b><span class="tag t-a">A股</span><i>9只 · 覆盖本指数 ETF 份额 94%</i></td><td class="num">3,380</td><td class="num up">+241.97</td><td class="num up">+628.16</td><td class="num up">+1,139</td><td class="num up">+1,121</td><td class="num down">-8,217</td><td class="num up">+47.79%</td></tr>
+<tr><td class="nm"><b>科创50</b><span class="tag t-a">A股</span><i>10只 · 覆盖本指数 ETF 份额 98%</i></td><td class="num">1,911</td><td class="num up">+47.52</td><td class="num up">+192.50</td><td class="num up">+500.66</td><td class="num up">+770.33</td><td class="num up">+184.97</td><td class="num up">+35.32%</td></tr>
+<tr><td class="nm"><b>中证A500</b><span class="tag t-a">A股</span><i>10只 · 覆盖本指数 ETF 份额 88%</i></td><td class="num">1,683</td><td class="num up">+18.38</td><td class="num up">+27.60</td><td class="num up">+48.01</td><td class="num up">+166.65</td><td class="num down">-865.28</td><td class="num up">+3.04%</td></tr>
+<tr><td class="nm"><b>纳指100</b><span class="tag t-us">境外</span><i>10只 · 覆盖本指数 ETF 份额 95%</i></td><td class="num">1,420</td><td class="num up">+0.81</td><td class="num up">+8.61</td><td class="num up">+49.57</td><td class="num up">+90.17</td><td class="num up">+138.53</td><td class="num up">+3.49%</td></tr>
+<tr><td class="nm"><b>恒生科技</b><span class="tag t-hk">港股</span><i>10只 · 覆盖本指数 ETF 份额 99%</i></td><td class="num">1,348</td><td class="num up">+0.20</td><td class="num up">+20.60</td><td class="num up">+41.58</td><td class="num up">+46.24</td><td class="num up">+246.56</td><td class="num up">+3.08%</td></tr>
+<tr><td class="nm"><b>创业板指</b><span class="tag t-a">A股</span><i>8只 · 覆盖本指数 ETF 份额 98%</i></td><td class="num">1,245</td><td class="num up">+74.45</td><td class="num up">+245.69</td><td class="num up">+489.02</td><td class="num up">+631.25</td><td class="num up">+41.16</td><td class="num up">+61.53%</td></tr>
+<tr><td class="nm"><b>中证500</b><span class="tag t-a">A股</span><i>6只 · 覆盖本指数 ETF 份额 88%</i></td><td class="num">743</td><td class="num up">+67.13</td><td class="num up">+120.68</td><td class="num up">+125.65</td><td class="num up">+117.20</td><td class="num down">-1,191</td><td class="num up">+16.77%</td></tr>
+<tr><td class="nm"><b>中证1000</b><span class="tag t-a">A股</span><i>5只 · 覆盖本指数 ETF 份额 98%</i></td><td class="num">522</td><td class="num up">+51.18</td><td class="num up">+89.01</td><td class="num up">+173.83</td><td class="num up">+46.76</td><td class="num down">-1,386</td><td class="num up">+52.35%</td></tr>
+<tr><td class="nm"><b>标普500</b><span class="tag t-us">境外</span><i>3只 · 覆盖本指数 ETF 份额 97%</i></td><td class="num">424</td><td class="num up">+0.31</td><td class="num up">+2.67</td><td class="num up">+27.38</td><td class="num up">+35.53</td><td class="num up">+73.54</td><td class="num up">+7.57%</td></tr>
+<tr><td class="nm"><b>上证50</b><span class="tag t-a">A股</span><i>3只 · 覆盖本指数 ETF 份额 96%</i></td><td class="num">413</td><td class="num up">+0.41</td><td class="num up">+117.32</td><td class="num up">+147.88</td><td class="num up">+133.16</td><td class="num down">-1,398</td><td class="num up">+58.16%</td></tr>
+<tr><td class="nm"><b>创业板50</b><span class="tag t-a">A股</span><i>3只 · 覆盖本指数 ETF 份额 92%</i></td><td class="num">318</td><td class="num up">+17.16</td><td class="num up">+41.40</td><td class="num up">+68.01</td><td class="num up">+112.83</td><td class="num down">-1.83</td><td class="num up">+26.83%</td></tr>
+<tr><td class="nm"><b>上证180</b><span class="tag t-a">A股</span><i>1只 · 覆盖本指数 ETF 份额 89%</i></td><td class="num">163</td><td class="num up">+0.04</td><td class="num up">+0.44</td><td class="num up">+0.78</td><td class="num up">+0.31</td><td class="num down">-50.73</td><td class="num up">+0.47%</td></tr>
+<tr><td class="nm"><b>科创100</b><span class="tag t-a">A股</span><i>5只 · 覆盖本指数 ETF 份额 89%</i></td><td class="num">156</td><td class="num up">+6.66</td><td class="num up">+12.39</td><td class="num up">+18.49</td><td class="num up">+21.83</td><td class="num down">-97.91</td><td class="num up">+13.00%</td></tr>
+<tr><td class="nm"><b>恒生指数</b><span class="tag t-hk">港股</span><i>2只 · 覆盖本指数 ETF 份额 97%</i></td><td class="num">101</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num down">-0.73</td><td class="num down">-17.73</td><td class="num down">-42.01</td><td class="num down">-0.67%</td></tr>
+<tr><td class="nm"><b>中证2000</b><span class="tag t-a">A股</span><i>2只 · 覆盖本指数 ETF 份额 89%</i></td><td class="num">83</td><td class="num up">+3.64</td><td class="num up">+15.54</td><td class="num up">+20.58</td><td class="num up">+12.15</td><td class="num up">+48.46</td><td class="num up">+32.59%</td></tr>
+<tr><td class="nm"><b>深证100</b><span class="tag t-a">A股</span><i>1只 · 覆盖本指数 ETF 份额 71%</i></td><td class="num">35</td><td class="num down">-0.19</td><td class="num up">+1.39</td><td class="num up">+3.53</td><td class="num up">+7.20</td><td class="num down">-34.85</td><td class="num up">+10.74%</td></tr>
+<tr class="sub"><td class="nm">A 股宽基小计<i>63只</i></td><td class="num">10,652</td><td class="num up">+528.35</td><td class="num up">+1,492</td><td class="num up">+2,735</td><td class="num up">+3,141</td><td class="num down">-12,968</td><td class="num up">+30.44%</td></tr>
+<tr class="sub"><td class="nm">港股宽基小计<i>12只</i></td><td class="num">1,449</td><td class="num up">+0.20</td><td class="num up">+20.60</td><td class="num up">+40.85</td><td class="num up">+28.51</td><td class="num up">+204.55</td><td class="num up">+2.98%</td></tr>
+<tr class="sub"><td class="nm">境外宽基小计<i>13只</i></td><td class="num">1,844</td><td class="num up">+1.12</td><td class="num up">+11.28</td><td class="num up">+76.95</td><td class="num up">+125.70</td><td class="num up">+212.07</td><td class="num up">+4.34%</td></tr>
+<tr class="tot bench"><td class="nm">主流宽基合计<i>88只</i></td><td class="num">13,945</td><td class="num up">+529.67</td><td class="num up">+1,524</td><td class="num up">+2,853</td><td class="num up">+3,295</td><td class="num down">-12,551</td><td class="num up">+19.56%</td></tr></tbody>
+  </table></div>
+</div>
+
+<div class="card">
+  <h2>展开②：红利策略分组</h2>
+  <div class="cap">单位：亿元｜按策略标签归类，用于看清是"整体撤离"还是"结构性调仓"</div>
+  <div class="tw"><table>
+    <thead><tr><th>策略</th><th class="num">只数</th><th class="num">规模</th>
+      <th class="num">当日</th><th class="num">近5日</th><th class="num">近20日</th>
+      <th class="num">近60日</th><th class="num">今年以来</th><th class="num">20日份额</th></tr></thead>
+    <tbody><tr class="r"><td class="nm">红利低波</td><td class="num">14</td><td class="num">901</td><td class="num up">+13.43</td><td class="num up">+14.22</td><td class="num down">-4.65</td><td class="num down">-91.66</td><td class="num up">+191.65</td><td class="num up">+0.98%</td></tr>
+<tr class="r"><td class="nm">中证红利及其他</td><td class="num">9</td><td class="num">557</td><td class="num up">+2.01</td><td class="num up">+10.00</td><td class="num up">+24.40</td><td class="num down">-76.16</td><td class="num up">+87.31</td><td class="num up">+4.03%</td></tr>
+<tr class="r"><td class="nm">港股红利</td><td class="num">18</td><td class="num">489</td><td class="num down">-5.01</td><td class="num down">-6.23</td><td class="num down">-18.94</td><td class="num down">-40.01</td><td class="num down">-215.44</td><td class="num down">-2.95%</td></tr>
+<tr class="r"><td class="nm">红利质量</td><td class="num">3</td><td class="num">40</td><td class="num down">-0.25</td><td class="num down">-1.05</td><td class="num down">-0.29</td><td class="num up">+2.16</td><td class="num up">+19.46</td><td class="num down">-0.79%</td></tr>
+<tr class="r"><td class="nm">央企国企红利</td><td class="num">3</td><td class="num">54</td><td class="num up">+0.71</td><td class="num up">+3.52</td><td class="num up">+7.36</td><td class="num down">-6.24</td><td class="num up">+4.49</td><td class="num up">+17.78%</td></tr>
+<tr class="r"><td class="nm">高股息策略</td><td class="num">1</td><td class="num">26</td><td class="num down">-0.18</td><td class="num down">-0.17</td><td class="num down">-0.78</td><td class="num up">+1.96</td><td class="num up">+21.49</td><td class="num down">-2.95%</td></tr>
+<tr class="tot"><td class="nm">红利类合计</td><td class="num">48</td><td class="num">2,066</td><td class="num up">+10.71</td><td class="num up">+20.29</td><td class="num up">+7.10</td><td class="num down">-209.95</td><td class="num up">+108.96</td><td class="num up">+1.08%</td></tr></tbody>
+  </table></div>
 </div>
 
 <div class="card">
   <h2>红利类 20 日净流入排行</h2>
   <div class="cap">上 10 名为净流入最多，下 10 名为净流出最多（亿元）</div>
-  <div id="c2" class="chart2"></div>
+  <div id="c3" class="chart3"></div>
 </div>
 
 <div class="card">
-  <h2>子类汇总</h2>
-  <div class="cap">单位：亿元　｜　红色=净流入，绿色=净流出</div>
-  <div class="tw"><table>
-    <thead><tr><th>类别</th><th class="num">只数</th><th class="num">规模</th>
-      <th class="num">当日</th><th class="num">近5日</th><th class="num">近20日</th>
-      <th class="num">近60日</th><th class="num">今年以来</th></tr></thead>
-    <tbody><tr><td class="nm">红利低波</td><td class="num">14</td><td class="num">901</td><td class="num up">+13.43</td><td class="num up">+14.22</td><td class="num down">-4.65</td><td class="num down">-91.66</td><td class="num up">+191.65</td></tr>
-<tr><td class="nm">中证红利及其他</td><td class="num">9</td><td class="num">557</td><td class="num up">+2.01</td><td class="num up">+10.00</td><td class="num up">+24.40</td><td class="num down">-76.16</td><td class="num up">+87.31</td></tr>
-<tr><td class="nm">港股红利</td><td class="num">18</td><td class="num">489</td><td class="num down">-5.01</td><td class="num down">-6.23</td><td class="num down">-18.94</td><td class="num down">-40.01</td><td class="num down">-215.44</td></tr>
-<tr><td class="nm">央企国企红利</td><td class="num">3</td><td class="num">54</td><td class="num up">+0.71</td><td class="num up">+3.52</td><td class="num up">+7.36</td><td class="num down">-6.24</td><td class="num up">+4.49</td></tr>
-<tr><td class="nm">红利质量</td><td class="num">3</td><td class="num">40</td><td class="num down">-0.25</td><td class="num down">-1.05</td><td class="num down">-0.29</td><td class="num up">+2.16</td><td class="num up">+19.46</td></tr>
-<tr><td class="nm">高股息策略</td><td class="num">1</td><td class="num">26</td><td class="num down">-0.18</td><td class="num down">-0.17</td><td class="num down">-0.78</td><td class="num up">+1.96</td><td class="num up">+21.49</td></tr>
-<tr class="tot"><td class="nm">红利类合计</td><td class="num">48</td><td class="num">2,066</td><td class="num up">+10.71</td><td class="num up">+20.29</td><td class="num up">+7.10</td><td class="num down">-209.95</td><td class="num up">+108.96</td></tr>
-<tr class="tot bench"><td class="nm">宽基对照（8只）</td><td class="num">8</td><td class="num">5,467</td><td class="num up">+291.00</td><td class="num up">+1,027</td><td class="num up">+1,698</td><td class="num up">+1,980</td><td class="num down">-6,423</td></tr></tbody>
-  </table></div>
-</div>
-
-<div class="card">
-  <h2>明细（按类别分组，组内按 20 日净流入排序）</h2>
-  <div class="cap">规模=份额×收盘价；20日份额=近 20 个交易日份额变化率；趋势=截至最新的连续净流入/流出天数</div>
+  <h2>红利 ETF 明细</h2>
+  <div class="cap">按策略分组，组内按 20 日净流入排序｜规模＝份额×收盘价｜20日份额＝近 20 个交易日份额变化率｜趋势＝截至最新的连续净流入/流出天数</div>
   <div class="tw"><table>
     <thead><tr><th>基金</th><th class="num">规模</th><th class="num">当日</th>
       <th class="num">近5日</th><th class="num">近20日</th><th class="num">近60日</th>
       <th class="num">今年以来</th><th class="num">20日份额</th><th class="num">趋势</th></tr></thead>
-    <tbody><tr class="grp"><td class="nm">红利低波<i>14只 · 901亿</i></td><td class="num sp">-4.65</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>易方达中证红利低波动ETF</b><i>563020</i></td><td class="num">131</td><td class="num up">+7.58</td><td class="num up">+9.18</td><td class="num up">+9.13</td><td class="num down">-3.01</td><td class="num up">+81.75</td><td class="num up">+7.5%</td><td class="num up">3↑</td></tr>
-<tr><td class="nm"><b>华夏中证红利低波动ETF</b><i>159547</i></td><td class="num">19</td><td class="num up">+0.01</td><td class="num up">+1.96</td><td class="num up">+3.12</td><td class="num down">-1.18</td><td class="num up">+9.45</td><td class="num up">+19.6%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>平安中证A500红利低波动ETF</b><i>561680</i></td><td class="num">3</td><td class="num up">+0.41</td><td class="num up">+0.85</td><td class="num up">+2.07</td><td class="num up">+1.92</td><td class="num up">+1.20</td><td class="num up">+372.9%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>嘉实沪深300红利低波动ETF</b><i>515300</i></td><td class="num">37</td><td class="num up">+0.52</td><td class="num up">+2.26</td><td class="num up">+0.74</td><td class="num down">-14.42</td><td class="num down">-10.41</td><td class="num up">+1.9%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>富国中证红利低波动ETF</b><i>159525</i></td><td class="num">5</td><td class="num up">+0.12</td><td class="num up">+0.15</td><td class="num up">+0.21</td><td class="num down">-0.14</td><td class="num up">+1.55</td><td class="num up">+4.2%</td><td class="num up">2↑</td></tr>
-<tr><td class="nm"><b>国联安中证A500红利低波ETF</b><i>560570</i></td><td class="num">12</td><td class="num down">-0.01</td><td class="num up">+0.17</td><td class="num up">+0.06</td><td class="num down">-2.42</td><td class="num down">-4.62</td><td class="num up">+0.5%</td><td class="num down">1↓</td></tr>
-<tr><td class="nm"><b>泰康中证红利低波动ETF</b><i>560150</i></td><td class="num">8</td><td class="num zero">+0.00</td><td class="num up">+0.01</td><td class="num down">-0.03</td><td class="num down">-0.26</td><td class="num down">-1.02</td><td class="num down">-0.5%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>易方达中证A500红利低波动ETF</b><i>563510</i></td><td class="num">3</td><td class="num down">-0.01</td><td class="num down">-0.05</td><td class="num down">-0.19</td><td class="num down">-0.51</td><td class="num down">-1.18</td><td class="num down">-6.3%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>天弘中证红利低波动100ETF</b><i>159549</i></td><td class="num">57</td><td class="num down">-0.01</td><td class="num down">-0.38</td><td class="num down">-0.59</td><td class="num down">-3.39</td><td class="num up">+6.91</td><td class="num down">-1.0%</td><td class="num down">3↓</td></tr>
-<tr><td class="nm"><b>万家中证800红利低波动ETF</b><i>158023</i></td><td class="num">4</td><td class="num down">-0.03</td><td class="num down">-0.21</td><td class="num down">-1.49</td><td class="num up">+0.42</td><td class="num up">+0.42</td><td class="num down">-27.1%</td><td class="num down">14↓</td></tr>
-<tr><td class="nm"><b>华泰柏瑞中证红利低波动ETF</b><i>512890</i></td><td class="num">311</td><td class="num up">+5.02</td><td class="num up">+1.64</td><td class="num down">-2.57</td><td class="num down">-47.70</td><td class="num up">+34.03</td><td class="num down">-0.8%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>博时中证红利低波100ETF</b><i>159307</i></td><td class="num">67</td><td class="num up">+0.03</td><td class="num down">-0.32</td><td class="num down">-2.87</td><td class="num down">-8.96</td><td class="num up">+40.20</td><td class="num down">-4.0%</td><td class="num up">2↑</td></tr>
-<tr><td class="nm"><b>景顺长城中证红利低波动100ETF</b><i>515100</i></td><td class="num">48</td><td class="num down">-0.21</td><td class="num down">-0.68</td><td class="num down">-3.65</td><td class="num down">-10.69</td><td class="num down">-8.94</td><td class="num down">-7.1%</td><td class="num down">2↓</td></tr>
-<tr><td class="nm"><b>南方标普中国A股大盘红利低波50ETF</b><i>515450</i></td><td class="num">198</td><td class="num up">+0.01</td><td class="num down">-0.36</td><td class="num down">-8.59</td><td class="num down">-1.32</td><td class="num up">+42.31</td><td class="num down">-4.1%</td><td class="num up">1↑</td></tr>
-<tr class="grp"><td class="nm">中证红利及其他<i>9只 · 557亿</i></td><td class="num sp">+24.40</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>易方达中证红利ETF</b><i>515180</i></td><td class="num">183</td><td class="num down">-0.13</td><td class="num up">+2.65</td><td class="num up">+14.60</td><td class="num up">+1.11</td><td class="num up">+67.18</td><td class="num up">+8.5%</td><td class="num down">1↓</td></tr>
-<tr><td class="nm"><b>招商中证红利ETF</b><i>515080</i></td><td class="num">117</td><td class="num up">+1.55</td><td class="num up">+5.44</td><td class="num up">+8.60</td><td class="num down">-5.24</td><td class="num up">+30.47</td><td class="num up">+7.9%</td><td class="num up">4↑</td></tr>
-<tr><td class="nm"><b>华泰柏瑞上证红利ETF</b><i>510880</i></td><td class="num">191</td><td class="num up">+0.55</td><td class="num up">+1.32</td><td class="num up">+3.81</td><td class="num down">-61.57</td><td class="num down">-16.24</td><td class="num up">+2.0%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>万家中证红利ETF</b><i>159581</i></td><td class="num">13</td><td class="num up">+0.10</td><td class="num up">+0.32</td><td class="num up">+1.20</td><td class="num down">-1.28</td><td class="num up">+2.19</td><td class="num up">+9.9%</td><td class="num up">8↑</td></tr>
-<tr><td class="nm"><b>工银深证红利ETF</b><i>159905</i></td><td class="num">15</td><td class="num down">-0.07</td><td class="num up">+0.10</td><td class="num up">+0.34</td><td class="num down">-2.79</td><td class="num down">-0.71</td><td class="num up">+2.2%</td><td class="num down">2↓</td></tr>
-<tr><td class="nm"><b>广发中证红利ETF</b><i>159589</i></td><td class="num">3</td><td class="num up">+0.01</td><td class="num up">+0.12</td><td class="num up">+0.30</td><td class="num up">+0.38</td><td class="num up">+2.10</td><td class="num up">+10.1%</td><td class="num up">8↑</td></tr>
-<tr><td class="nm"><b>易方达中证红利价值ETF</b><i>563700</i></td><td class="num">4</td><td class="num down">-0.04</td><td class="num down">-0.08</td><td class="num up">+0.22</td><td class="num down">-0.37</td><td class="num down">-1.86</td><td class="num up">+5.7%</td><td class="num down">2↓</td></tr>
-<tr><td class="nm"><b>博时中证红利ETF</b><i>515890</i></td><td class="num">6</td><td class="num up">+0.03</td><td class="num up">+0.10</td><td class="num up">+0.10</td><td class="num up">+0.70</td><td class="num up">+1.02</td><td class="num up">+1.8%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>华宝标普中国A股红利机会ETF</b><i>562060</i></td><td class="num">25</td><td class="num up">+0.01</td><td class="num up">+0.03</td><td class="num down">-4.77</td><td class="num down">-7.10</td><td class="num up">+3.16</td><td class="num down">-15.8%</td><td class="num up">1↑</td></tr>
-<tr class="grp"><td class="nm">港股红利<i>18只 · 489亿</i></td><td class="num sp">-18.94</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>华泰柏瑞中证港股通高股息投资ETF(QD</b><i>513530</i></td><td class="num">60</td><td class="num up">+0.13</td><td class="num up">+3.35</td><td class="num up">+11.31</td><td class="num up">+20.59</td><td class="num up">+26.92</td><td class="num up">+22.4%</td><td class="num up">4↑</td></tr>
-<tr><td class="nm"><b>招商恒生港股通红利低波动ETF</b><i>520550</i></td><td class="num">13</td><td class="num up">+0.02</td><td class="num up">+0.47</td><td class="num up">+0.96</td><td class="num up">+1.33</td><td class="num up">+1.37</td><td class="num up">+7.7%</td><td class="num up">4↑</td></tr>
-<tr><td class="nm"><b>汇添富中证港股通高股息投资ETF</b><i>513820</i></td><td class="num">21</td><td class="num zero">+0.00</td><td class="num down">-0.06</td><td class="num up">+0.72</td><td class="num down">-0.81</td><td class="num down">-24.77</td><td class="num up">+3.4%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>景顺长城国证港股通红利低波动率ETF</b><i>159569</i></td><td class="num">6</td><td class="num down">-0.04</td><td class="num down">-0.12</td><td class="num up">+0.55</td><td class="num up">+0.87</td><td class="num up">+1.01</td><td class="num up">+10.2%</td><td class="num down">1↓</td></tr>
-<tr><td class="nm"><b>易方达中证港股通高股息投资ETF</b><i>520810</i></td><td class="num">3</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num up">+0.37</td><td class="num up">+1.20</td><td class="num zero">+0.0%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>永赢中证港股通央企红利ETF</b><i>159266</i></td><td class="num">3</td><td class="num zero">+0.00</td><td class="num down">-0.01</td><td class="num down">-0.07</td><td class="num down">-0.27</td><td class="num down">-2.85</td><td class="num down">-2.1%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>华宝标普港股通低波红利ETF</b><i>159220</i></td><td class="num">2</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num down">-0.13</td><td class="num down">-0.41</td><td class="num down">-0.57</td><td class="num down">-5.1%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>银华标普港股通低波红利ETF</b><i>520610</i></td><td class="num">3</td><td class="num zero">+0.00</td><td class="num down">-0.01</td><td class="num down">-0.18</td><td class="num up">+1.24</td><td class="num down">-3.36</td><td class="num down">-4.7%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>南方中证国新港股通央企红利ETF</b><i>520660</i></td><td class="num">17</td><td class="num zero">+0.00</td><td class="num down">-0.02</td><td class="num down">-0.75</td><td class="num down">-5.93</td><td class="num down">-8.65</td><td class="num down">-4.0%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>广发中证国新港股通央企红利ETF</b><i>520900</i></td><td class="num">14</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num down">-0.79</td><td class="num down">-1.50</td><td class="num down">-4.34</td><td class="num down">-5.2%</td><td class="num">—</td></tr>
-<tr><td class="nm"><b>富国恒生港股通红利低波动ETF(QDII</b><i>513950</i></td><td class="num">27</td><td class="num down">-0.09</td><td class="num down">-0.56</td><td class="num down">-0.84</td><td class="num down">-0.95</td><td class="num down">-1.13</td><td class="num down">-3.0%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>华夏中证港股通央企红利ETF</b><i>513910</i></td><td class="num">28</td><td class="num down">-0.32</td><td class="num down">-0.49</td><td class="num down">-1.34</td><td class="num down">-3.54</td><td class="num down">-20.23</td><td class="num down">-4.4%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>景顺长城中证国新港股通央企红利ETF</b><i>520990</i></td><td class="num">29</td><td class="num down">-0.07</td><td class="num down">-0.43</td><td class="num down">-1.83</td><td class="num down">-5.45</td><td class="num down">-26.03</td><td class="num down">-5.7%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>工银瑞信中证港股通高股息精选ETF</b><i>159691</i></td><td class="num">39</td><td class="num down">-0.37</td><td class="num down">-0.89</td><td class="num down">-2.67</td><td class="num down">-5.43</td><td class="num down">-39.13</td><td class="num down">-6.2%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>易方达恒生港股通红利低波动ETF</b><i>159545</i></td><td class="num">63</td><td class="num down">-0.19</td><td class="num down">-0.07</td><td class="num down">-3.49</td><td class="num down">-0.64</td><td class="num down">-3.10</td><td class="num down">-5.1%</td><td class="num down">1↓</td></tr>
-<tr><td class="nm"><b>博时港股红利ETF</b><i>513690</i></td><td class="num">30</td><td class="num down">-0.82</td><td class="num down">-1.34</td><td class="num down">-3.90</td><td class="num down">-9.97</td><td class="num down">-25.92</td><td class="num down">-11.2%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>华安恒生港股通中国央企红利ETF</b><i>513920</i></td><td class="num">32</td><td class="num down">-0.36</td><td class="num down">-1.34</td><td class="num down">-5.09</td><td class="num down">-9.60</td><td class="num down">-27.73</td><td class="num down">-13.5%</td><td class="num down">4↓</td></tr>
-<tr><td class="nm"><b>摩根标普港股通低波红利ETF</b><i>513630</i></td><td class="num">100</td><td class="num down">-2.90</td><td class="num down">-4.71</td><td class="num down">-11.40</td><td class="num down">-19.91</td><td class="num down">-58.13</td><td class="num down">-10.1%</td><td class="num down">4↓</td></tr>
-<tr class="grp"><td class="nm">红利质量<i>3只 · 40亿</i></td><td class="num sp">-0.29</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>招商中证全指红利质量ETF</b><i>159209</i></td><td class="num">25</td><td class="num down">-0.06</td><td class="num down">-1.13</td><td class="num zero">+0.00</td><td class="num up">+3.64</td><td class="num up">+21.22</td><td class="num down">-0.0%</td><td class="num down">5↓</td></tr>
-<tr><td class="nm"><b>南方中证全指红利质量ETF</b><i>515460</i></td><td class="num">2</td><td class="num down">-0.02</td><td class="num down">-0.03</td><td class="num zero">+0.00</td><td class="num down">-0.13</td><td class="num down">-1.69</td><td class="num zero">+0.0%</td><td class="num down">1↓</td></tr>
-<tr><td class="nm"><b>华夏中证红利质量ETF</b><i>159758</i></td><td class="num">13</td><td class="num down">-0.17</td><td class="num up">+0.11</td><td class="num down">-0.29</td><td class="num down">-1.35</td><td class="num down">-0.07</td><td class="num down">-2.4%</td><td class="num down">2↓</td></tr>
-<tr class="grp"><td class="nm">央企国企红利<i>3只 · 54亿</i></td><td class="num sp">+7.36</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>国泰上证国有企业红利ETF</b><i>510720</i></td><td class="num">21</td><td class="num up">+0.65</td><td class="num up">+1.95</td><td class="num up">+3.10</td><td class="num down">-5.22</td><td class="num down">-10.20</td><td class="num up">+17.1%</td><td class="num up">7↑</td></tr>
-<tr><td class="nm"><b>融通中证诚通央企红利ETF</b><i>159336</i></td><td class="num">6</td><td class="num up">+0.05</td><td class="num up">+0.79</td><td class="num up">+2.56</td><td class="num up">+0.73</td><td class="num down">-0.97</td><td class="num up">+64.6%</td><td class="num up">1↑</td></tr>
-<tr><td class="nm"><b>华泰柏瑞中证中央企业红利ETF</b><i>561580</i></td><td class="num">26</td><td class="num up">+0.01</td><td class="num up">+0.78</td><td class="num up">+1.70</td><td class="num down">-1.75</td><td class="num up">+15.66</td><td class="num up">+6.8%</td><td class="num up">4↑</td></tr>
-<tr class="grp"><td class="nm">高股息策略<i>1只 · 26亿</i></td><td class="num sp">-0.78</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>广发中证智选高股息策略ETF</b><i>159207</i></td><td class="num">26</td><td class="num down">-0.18</td><td class="num down">-0.17</td><td class="num down">-0.78</td><td class="num up">+1.96</td><td class="num up">+21.49</td><td class="num down">-3.0%</td><td class="num down">3↓</td></tr>
-<tr class="grp"><td class="nm">宽基对照<i>8只 · 5,467亿</i></td><td class="num sp">+1,698.46</td><td colspan="7" class="cap2">20日合计净流入（亿）</td></tr>
-<tr><td class="nm"><b>沪深300ETF华泰柏瑞</b><i>510300</i></td><td class="num">1,472</td><td class="num up">+104.98</td><td class="num up">+278.24</td><td class="num up">+485.87</td><td class="num up">+465.70</td><td class="num down">-2,654</td><td class="num up">+48.7%</td><td class="num up">7↑</td></tr>
-<tr><td class="nm"><b>科创50ETF华夏</b><i>588000</i></td><td class="num">1,170</td><td class="num up">+39.25</td><td class="num up">+169.47</td><td class="num up">+389.19</td><td class="num up">+541.90</td><td class="num up">+430.83</td><td class="num up">+48.0%</td><td class="num up">16↑</td></tr>
-<tr><td class="nm"><b>创业板ETF易方达</b><i>159915</i></td><td class="num">912</td><td class="num up">+66.25</td><td class="num up">+210.02</td><td class="num up">+384.05</td><td class="num up">+490.14</td><td class="num down">-11.11</td><td class="num up">+68.8%</td><td class="num up">12↑</td></tr>
-<tr><td class="nm"><b>沪深300ETF嘉实</b><i>159919</i></td><td class="num">435</td><td class="num up">+9.57</td><td class="num up">+132.02</td><td class="num up">+159.47</td><td class="num up">+165.96</td><td class="num down">-1,570</td><td class="num up">+57.5%</td><td class="num up">7↑</td></tr>
-<tr><td class="nm"><b>上证50ETF华夏</b><i>510050</i></td><td class="num">373</td><td class="num up">+0.28</td><td class="num up">+116.66</td><td class="num up">+148.14</td><td class="num up">+145.57</td><td class="num down">-1,378</td><td class="num up">+66.8%</td><td class="num up">9↑</td></tr>
-<tr><td class="nm"><b>中证500ETF南方</b><i>510500</i></td><td class="num">501</td><td class="num up">+58.50</td><td class="num up">+103.91</td><td class="num up">+109.02</td><td class="num up">+103.21</td><td class="num down">-1,019</td><td class="num up">+28.3%</td><td class="num up">2↑</td></tr>
-<tr><td class="nm"><b>中证A500ETF国泰</b><i>159338</i></td><td class="num">242</td><td class="num up">+3.54</td><td class="num up">+7.21</td><td class="num up">+14.59</td><td class="num up">+15.09</td><td class="num down">-115.63</td><td class="num up">+6.4%</td><td class="num up">3↑</td></tr>
-<tr><td class="nm"><b>中证A500ETF华泰柏瑞</b><i>563360</i></td><td class="num">362</td><td class="num up">+8.63</td><td class="num up">+9.78</td><td class="num up">+8.13</td><td class="num up">+52.45</td><td class="num down">-105.93</td><td class="num up">+2.6%</td><td class="num up">1↑</td></tr></tbody>
+    <tbody><tr class="grp"><td class="nm">红利低波<i>14只 · 901亿</i></td><td class="num sp">-4.65</td><td colspan="6" class="cap2">20日合计净流入（亿）</td></tr>
+<tr><td class="nm"><b>易方达中证红利低波动ETF</b><i>563020</i></td><td class="num">131</td><td class="num up">+7.58</td><td class="num up">+9.18</td><td class="num up">+9.13</td><td class="num down">-3.01</td><td class="num up">+81.75</td><td class="num up">+7.54%</td><td class="num up">3↑</td></tr>
+<tr><td class="nm"><b>华夏中证红利低波动ETF</b><i>159547</i></td><td class="num">19</td><td class="num up">+0.01</td><td class="num up">+1.96</td><td class="num up">+3.12</td><td class="num down">-1.18</td><td class="num up">+9.45</td><td class="num up">+19.56%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>平安中证A500红利低波动ETF</b><i>561680</i></td><td class="num">3</td><td class="num up">+0.41</td><td class="num up">+0.85</td><td class="num up">+2.07</td><td class="num up">+1.92</td><td class="num up">+1.20</td><td class="num up">+372.91%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>嘉实沪深300红利低波动ETF</b><i>515300</i></td><td class="num">37</td><td class="num up">+0.52</td><td class="num up">+2.26</td><td class="num up">+0.74</td><td class="num down">-14.42</td><td class="num down">-10.41</td><td class="num up">+1.93%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>富国中证红利低波动ETF</b><i>159525</i></td><td class="num">5</td><td class="num up">+0.12</td><td class="num up">+0.15</td><td class="num up">+0.21</td><td class="num down">-0.14</td><td class="num up">+1.55</td><td class="num up">+4.20%</td><td class="num up">2↑</td></tr>
+<tr><td class="nm"><b>国联安中证A500红利低波ETF</b><i>560570</i></td><td class="num">12</td><td class="num down">-0.01</td><td class="num up">+0.17</td><td class="num up">+0.06</td><td class="num down">-2.42</td><td class="num down">-4.62</td><td class="num up">+0.51%</td><td class="num down">1↓</td></tr>
+<tr><td class="nm"><b>泰康中证红利低波动ETF</b><i>560150</i></td><td class="num">8</td><td class="num zero">+0.00</td><td class="num up">+0.01</td><td class="num down">-0.03</td><td class="num down">-0.26</td><td class="num down">-1.02</td><td class="num down">-0.45%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>易方达中证A500红利低波动ETF</b><i>563510</i></td><td class="num">3</td><td class="num down">-0.01</td><td class="num down">-0.05</td><td class="num down">-0.19</td><td class="num down">-0.51</td><td class="num down">-1.18</td><td class="num down">-6.35%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>天弘中证红利低波动100ETF</b><i>159549</i></td><td class="num">57</td><td class="num down">-0.01</td><td class="num down">-0.38</td><td class="num down">-0.59</td><td class="num down">-3.39</td><td class="num up">+6.91</td><td class="num down">-0.97%</td><td class="num down">3↓</td></tr>
+<tr><td class="nm"><b>万家中证800红利低波动ETF</b><i>158023</i></td><td class="num">4</td><td class="num down">-0.03</td><td class="num down">-0.21</td><td class="num down">-1.49</td><td class="num up">+0.42</td><td class="num up">+0.42</td><td class="num down">-27.12%</td><td class="num down">14↓</td></tr>
+<tr><td class="nm"><b>华泰柏瑞中证红利低波动ETF</b><i>512890</i></td><td class="num">311</td><td class="num up">+5.02</td><td class="num up">+1.64</td><td class="num down">-2.57</td><td class="num down">-47.70</td><td class="num up">+34.03</td><td class="num down">-0.82%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>博时中证红利低波100ETF</b><i>159307</i></td><td class="num">67</td><td class="num up">+0.03</td><td class="num down">-0.32</td><td class="num down">-2.87</td><td class="num down">-8.96</td><td class="num up">+40.20</td><td class="num down">-4.03%</td><td class="num up">2↑</td></tr>
+<tr><td class="nm"><b>景顺长城中证红利低波动100ETF</b><i>515100</i></td><td class="num">48</td><td class="num down">-0.21</td><td class="num down">-0.68</td><td class="num down">-3.65</td><td class="num down">-10.69</td><td class="num down">-8.94</td><td class="num down">-7.08%</td><td class="num down">2↓</td></tr>
+<tr><td class="nm"><b>南方标普中国A股大盘红利低波50ETF</b><i>515450</i></td><td class="num">198</td><td class="num up">+0.01</td><td class="num down">-0.36</td><td class="num down">-8.59</td><td class="num down">-1.32</td><td class="num up">+42.31</td><td class="num down">-4.09%</td><td class="num up">1↑</td></tr>
+<tr class="grp"><td class="nm">中证红利及其他<i>9只 · 557亿</i></td><td class="num sp">+24.40</td><td colspan="6" class="cap2">20日合计净流入（亿）</td></tr>
+<tr><td class="nm"><b>易方达中证红利ETF</b><i>515180</i></td><td class="num">183</td><td class="num down">-0.13</td><td class="num up">+2.65</td><td class="num up">+14.60</td><td class="num up">+1.11</td><td class="num up">+67.18</td><td class="num up">+8.48%</td><td class="num down">1↓</td></tr>
+<tr><td class="nm"><b>招商中证红利ETF</b><i>515080</i></td><td class="num">117</td><td class="num up">+1.55</td><td class="num up">+5.44</td><td class="num up">+8.60</td><td class="num down">-5.24</td><td class="num up">+30.47</td><td class="num up">+7.88%</td><td class="num up">4↑</td></tr>
+<tr><td class="nm"><b>华泰柏瑞上证红利ETF</b><i>510880</i></td><td class="num">191</td><td class="num up">+0.55</td><td class="num up">+1.32</td><td class="num up">+3.81</td><td class="num down">-61.57</td><td class="num down">-16.24</td><td class="num up">+1.96%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>万家中证红利ETF</b><i>159581</i></td><td class="num">13</td><td class="num up">+0.10</td><td class="num up">+0.32</td><td class="num up">+1.20</td><td class="num down">-1.28</td><td class="num up">+2.19</td><td class="num up">+9.86%</td><td class="num up">8↑</td></tr>
+<tr><td class="nm"><b>工银深证红利ETF</b><i>159905</i></td><td class="num">15</td><td class="num down">-0.07</td><td class="num up">+0.10</td><td class="num up">+0.34</td><td class="num down">-2.79</td><td class="num down">-0.71</td><td class="num up">+2.21%</td><td class="num down">2↓</td></tr>
+<tr><td class="nm"><b>广发中证红利ETF</b><i>159589</i></td><td class="num">3</td><td class="num up">+0.01</td><td class="num up">+0.12</td><td class="num up">+0.30</td><td class="num up">+0.38</td><td class="num up">+2.10</td><td class="num up">+10.05%</td><td class="num up">8↑</td></tr>
+<tr><td class="nm"><b>易方达中证红利价值ETF</b><i>563700</i></td><td class="num">4</td><td class="num down">-0.04</td><td class="num down">-0.08</td><td class="num up">+0.22</td><td class="num down">-0.37</td><td class="num down">-1.86</td><td class="num up">+5.70%</td><td class="num down">2↓</td></tr>
+<tr><td class="nm"><b>博时中证红利ETF</b><i>515890</i></td><td class="num">6</td><td class="num up">+0.03</td><td class="num up">+0.10</td><td class="num up">+0.10</td><td class="num up">+0.70</td><td class="num up">+1.02</td><td class="num up">+1.83%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>华宝标普中国A股红利机会ETF</b><i>562060</i></td><td class="num">25</td><td class="num up">+0.01</td><td class="num up">+0.03</td><td class="num down">-4.77</td><td class="num down">-7.10</td><td class="num up">+3.16</td><td class="num down">-15.85%</td><td class="num up">1↑</td></tr>
+<tr class="grp"><td class="nm">港股红利<i>18只 · 489亿</i></td><td class="num sp">-18.94</td><td colspan="6" class="cap2">20日合计净流入（亿）</td></tr>
+<tr><td class="nm"><b>华泰柏瑞中证港股通高股息投资ETF(QD</b><i>513530</i></td><td class="num">60</td><td class="num up">+0.13</td><td class="num up">+3.35</td><td class="num up">+11.31</td><td class="num up">+20.59</td><td class="num up">+26.92</td><td class="num up">+22.36%</td><td class="num up">4↑</td></tr>
+<tr><td class="nm"><b>招商恒生港股通红利低波动ETF</b><i>520550</i></td><td class="num">13</td><td class="num up">+0.02</td><td class="num up">+0.47</td><td class="num up">+0.96</td><td class="num up">+1.33</td><td class="num up">+1.37</td><td class="num up">+7.65%</td><td class="num up">4↑</td></tr>
+<tr><td class="nm"><b>汇添富中证港股通高股息投资ETF</b><i>513820</i></td><td class="num">21</td><td class="num zero">+0.00</td><td class="num down">-0.06</td><td class="num up">+0.72</td><td class="num down">-0.81</td><td class="num down">-24.77</td><td class="num up">+3.40%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>景顺长城国证港股通红利低波动率ETF</b><i>159569</i></td><td class="num">6</td><td class="num down">-0.04</td><td class="num down">-0.12</td><td class="num up">+0.55</td><td class="num up">+0.87</td><td class="num up">+1.01</td><td class="num up">+10.21%</td><td class="num down">1↓</td></tr>
+<tr><td class="nm"><b>易方达中证港股通高股息投资ETF</b><i>520810</i></td><td class="num">3</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num up">+0.37</td><td class="num up">+1.20</td><td class="num zero">+0.00%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>永赢中证港股通央企红利ETF</b><i>159266</i></td><td class="num">3</td><td class="num zero">+0.00</td><td class="num down">-0.01</td><td class="num down">-0.07</td><td class="num down">-0.27</td><td class="num down">-2.85</td><td class="num down">-2.09%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>华宝标普港股通低波红利ETF</b><i>159220</i></td><td class="num">2</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num down">-0.13</td><td class="num down">-0.41</td><td class="num down">-0.57</td><td class="num down">-5.10%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>银华标普港股通低波红利ETF</b><i>520610</i></td><td class="num">3</td><td class="num zero">+0.00</td><td class="num down">-0.01</td><td class="num down">-0.18</td><td class="num up">+1.24</td><td class="num down">-3.36</td><td class="num down">-4.70%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>南方中证国新港股通央企红利ETF</b><i>520660</i></td><td class="num">17</td><td class="num zero">+0.00</td><td class="num down">-0.02</td><td class="num down">-0.75</td><td class="num down">-5.93</td><td class="num down">-8.65</td><td class="num down">-3.95%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>广发中证国新港股通央企红利ETF</b><i>520900</i></td><td class="num">14</td><td class="num zero">+0.00</td><td class="num zero">+0.00</td><td class="num down">-0.79</td><td class="num down">-1.50</td><td class="num down">-4.34</td><td class="num down">-5.22%</td><td class="num">—</td></tr>
+<tr><td class="nm"><b>富国恒生港股通红利低波动ETF(QDII</b><i>513950</i></td><td class="num">27</td><td class="num down">-0.09</td><td class="num down">-0.56</td><td class="num down">-0.84</td><td class="num down">-0.95</td><td class="num down">-1.13</td><td class="num down">-3.01%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>华夏中证港股通央企红利ETF</b><i>513910</i></td><td class="num">28</td><td class="num down">-0.32</td><td class="num down">-0.49</td><td class="num down">-1.34</td><td class="num down">-3.54</td><td class="num down">-20.23</td><td class="num down">-4.43%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>景顺长城中证国新港股通央企红利ETF</b><i>520990</i></td><td class="num">29</td><td class="num down">-0.07</td><td class="num down">-0.43</td><td class="num down">-1.83</td><td class="num down">-5.45</td><td class="num down">-26.03</td><td class="num down">-5.66%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>工银瑞信中证港股通高股息精选ETF</b><i>159691</i></td><td class="num">39</td><td class="num down">-0.37</td><td class="num down">-0.89</td><td class="num down">-2.67</td><td class="num down">-5.43</td><td class="num down">-39.13</td><td class="num down">-6.25%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>易方达恒生港股通红利低波动ETF</b><i>159545</i></td><td class="num">63</td><td class="num down">-0.19</td><td class="num down">-0.07</td><td class="num down">-3.49</td><td class="num down">-0.64</td><td class="num down">-3.10</td><td class="num down">-5.13%</td><td class="num down">1↓</td></tr>
+<tr><td class="nm"><b>博时港股红利ETF</b><i>513690</i></td><td class="num">30</td><td class="num down">-0.82</td><td class="num down">-1.34</td><td class="num down">-3.90</td><td class="num down">-9.97</td><td class="num down">-25.92</td><td class="num down">-11.20%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>华安恒生港股通中国央企红利ETF</b><i>513920</i></td><td class="num">32</td><td class="num down">-0.36</td><td class="num down">-1.34</td><td class="num down">-5.09</td><td class="num down">-9.60</td><td class="num down">-27.73</td><td class="num down">-13.54%</td><td class="num down">4↓</td></tr>
+<tr><td class="nm"><b>摩根标普港股通低波红利ETF</b><i>513630</i></td><td class="num">100</td><td class="num down">-2.90</td><td class="num down">-4.71</td><td class="num down">-11.40</td><td class="num down">-19.91</td><td class="num down">-58.13</td><td class="num down">-10.14%</td><td class="num down">4↓</td></tr>
+<tr class="grp"><td class="nm">红利质量<i>3只 · 40亿</i></td><td class="num sp">-0.29</td><td colspan="6" class="cap2">20日合计净流入（亿）</td></tr>
+<tr><td class="nm"><b>招商中证全指红利质量ETF</b><i>159209</i></td><td class="num">25</td><td class="num down">-0.06</td><td class="num down">-1.13</td><td class="num zero">+0.00</td><td class="num up">+3.64</td><td class="num up">+21.22</td><td class="num down">-0.04%</td><td class="num down">5↓</td></tr>
+<tr><td class="nm"><b>南方中证全指红利质量ETF</b><i>515460</i></td><td class="num">2</td><td class="num down">-0.02</td><td class="num down">-0.03</td><td class="num zero">+0.00</td><td class="num down">-0.13</td><td class="num down">-1.69</td><td class="num zero">+0.00%</td><td class="num down">1↓</td></tr>
+<tr><td class="nm"><b>华夏中证红利质量ETF</b><i>159758</i></td><td class="num">13</td><td class="num down">-0.17</td><td class="num up">+0.11</td><td class="num down">-0.29</td><td class="num down">-1.35</td><td class="num down">-0.07</td><td class="num down">-2.35%</td><td class="num down">2↓</td></tr>
+<tr class="grp"><td class="nm">央企国企红利<i>3只 · 54亿</i></td><td class="num sp">+7.36</td><td colspan="6" class="cap2">20日合计净流入（亿）</td></tr>
+<tr><td class="nm"><b>国泰上证国有企业红利ETF</b><i>510720</i></td><td class="num">21</td><td class="num up">+0.65</td><td class="num up">+1.95</td><td class="num up">+3.10</td><td class="num down">-5.22</td><td class="num down">-10.20</td><td class="num up">+17.10%</td><td class="num up">7↑</td></tr>
+<tr><td class="nm"><b>融通中证诚通央企红利ETF</b><i>159336</i></td><td class="num">6</td><td class="num up">+0.05</td><td class="num up">+0.79</td><td class="num up">+2.56</td><td class="num up">+0.73</td><td class="num down">-0.97</td><td class="num up">+64.62%</td><td class="num up">1↑</td></tr>
+<tr><td class="nm"><b>华泰柏瑞中证中央企业红利ETF</b><i>561580</i></td><td class="num">26</td><td class="num up">+0.01</td><td class="num up">+0.78</td><td class="num up">+1.70</td><td class="num down">-1.75</td><td class="num up">+15.66</td><td class="num up">+6.76%</td><td class="num up">4↑</td></tr>
+<tr class="grp"><td class="nm">高股息策略<i>1只 · 26亿</i></td><td class="num sp">-0.78</td><td colspan="6" class="cap2">20日合计净流入（亿）</td></tr>
+<tr><td class="nm"><b>广发中证智选高股息策略ETF</b><i>159207</i></td><td class="num">26</td><td class="num down">-0.18</td><td class="num down">-0.17</td><td class="num down">-0.78</td><td class="num up">+1.96</td><td class="num up">+21.49</td><td class="num down">-2.95%</td><td class="num down">3↓</td></tr></tbody>
   </table></div>
 </div>
 
@@ -176,21 +238,23 @@ tr.tot.bench td{font-weight:600;color:#4a6572}
 ① 净流入＝当日份额变动 × 当日收盘价。<b>不是成交额，也不是主力资金</b>——ETF 二级市场买卖只换手不改变份额，只有申购/赎回才产生真实的资金进出。<br>
 ② 东财 <code>SHARE_CHANGE_Q</code> 字段口径不可靠（实测为滚动累计值，512890 某日披露 −40 万份而当日实际净申购），本页一律用相邻 <code>TOTAL_SHARE</code> 差分还原。<br>
 ③ 价格用日 K 收盘价（前复权），与单位净值偏差 &lt;0.1%（515180 逐日校验）；ETF 分红不改变份额，不影响流量计算。<br>
-④ 样本为红利类规模前 48 只 + 8 只宽基对照，覆盖红利 ETF 份额 <b>97.5%</b>；港股红利含 QDII，受汇率与额度影响，流向波动天然更大。<br>
-⑤ 数据披露有 T+1 延迟，最新完整日为 <b>2026-10-23</b>。
+④ <b>宽基不是"一只代表"</b>：每个指数收录份额 ≥8 亿份的全部 ETF（最多 10 只）后汇总，覆盖各指数 ETF 份额多在 88%~99%，避免只取旗舰 ETF 造成失真。港股/境外宽基为 QDII，受汇率与额度影响，流向波动天然更大。<br>
+⑤ 归一化对比用「累计净流入 ÷ 期初规模」，只为消除体量差，不代表收益率。<br>
+⑥ 数据披露有 T+1 延迟，最新完整日为 <b>2026-10-23</b>。
 </div>
 </div>
 
 <script src="echarts.min.js"></script>
 <script>window.echarts||document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"><\/script>');</script>
 <script>
-var DATES=["2026-07-24", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28", "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"], DIV=[4.63, -0.73, -9.77, -20.77, -41.23, -48.26, -52.09, -66.66, -98.94, -127.51, -135.71, -152.21, -151.16, -149.89, -146.49, -145.48, -145.58, -157.09, -161.4, -166.47, -164.2, -171.62, -171.51, -168.76, -164.04, -170.53, -174.23, -198.37, -204.27, -218.33, -229.45, -224.18, -230.97, -231.45, -233.31, -224.59, -220.7, -216.84, -214.66, -217.05, -219.55, -220.17, -223.48, -226.9, -223.77, -226.0, -226.81, -227.5, -227.18, -229.45, -235.97, -237.15, -238.39, -237.66, -230.24, -230.13, -221.5, -221.31, -220.66, -209.95], BEN=[3.22, 88.23, 197.75, 359.53, 530.82, 461.15, 570.27, 481.59, 368.05, 308.26, 212.76, 190.45, 179.06, 113.93, 49.29, 36.7, -45.36, -97.13, 89.43, 84.72, 36.13, 97.57, 170.45, 129.91, 108.49, 86.21, 111.18, 69.44, 69.98, 106.64, 184.68, 184.73, 170.93, 153.21, 169.43, 203.23, 225.83, 256.72, 289.88, 281.56, 267.3, 240.89, 234.72, 248.29, 236.12, 316.81, 316.28, 340.7, 393.5, 486.72, 503.26, 559.53, 580.43, 750.72, 952.68, 1091.06, 1184.05, 1302.98, 1688.99, 1980.01];
-var NAME=["易方达中证红利ETF", "华泰柏瑞中证港股通高股息投资E", "易方达中证红利低波动ETF", "招商中证红利ETF", "华泰柏瑞上证红利ETF", "华夏中证红利低波动ETF", "国泰上证国有企业红利ETF", "融通中证诚通央企红利ETF", "平安中证A500红利低波动ET", "华泰柏瑞中证中央企业红利ETF", "摩根标普港股通低波红利ETF", "南方标普中国A股大盘红利低波5", "华安恒生港股通中国央企红利ET", "华宝标普中国A股红利机会ETF", "博时港股红利ETF", "景顺长城中证红利低波动100E", "易方达恒生港股通红利低波动ET", "博时中证红利低波100ETF", "工银瑞信中证港股通高股息精选E", "华泰柏瑞中证红利低波动ETF"], VAL=[14.6, 11.31, 9.13, 8.6, 3.81, 3.12, 3.1, 2.56, 2.07, 1.7, -11.4, -8.59, -5.09, -4.77, -3.9, -3.65, -3.49, -2.87, -2.67, -2.57], CLS=["中证红利及其他", "港股红利", "红利低波", "中证红利及其他", "中证红利及其他", "红利低波", "央企国企红利", "央企国企红利", "红利低波", "分界线", "港股红利", "红利低波", "港股红利", "中证红利及其他", "港股红利", "红利低波", "港股红利", "红利低波", "港股红利", "红利低波"];
-var UP='#c0392b', DOWN='#1e8449';
+var DATES=["2026-07-24", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28", "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"], DIV=[4.63, -0.73, -9.77, -20.77, -41.23, -48.26, -52.09, -66.66, -98.94, -127.51, -135.71, -152.21, -151.16, -149.89, -146.49, -145.48, -145.58, -157.09, -161.4, -166.47, -164.2, -171.62, -171.51, -168.76, -164.04, -170.53, -174.23, -198.37, -204.27, -218.33, -229.45, -224.18, -230.97, -231.45, -233.31, -224.59, -220.7, -216.84, -214.66, -217.05, -219.55, -220.17, -223.48, -226.9, -223.77, -226.0, -226.81, -227.5, -227.18, -229.45, -235.97, -237.15, -238.39, -237.66, -230.24, -230.13, -221.5, -221.31, -220.66, -209.95], BEN=[33.13, 202.96, 356.85, 703.71, 989.67, 888.46, 1066.11, 975.96, 812.28, 658.96, 446.7, 359.49, 320.92, 203.27, 85.7, 55.28, -57.85, -176.27, 180.94, 133.92, 45.04, 129.43, 258.38, 206.51, 181.29, 148.36, 178.47, 104.28, 94.74, 153.19, 294.73, 300.91, 272.11, 251.86, 294.37, 333.45, 355.27, 388.13, 459.11, 441.92, 419.19, 378.46, 418.89, 482.14, 459.11, 614.76, 635.85, 702.19, 808.17, 972.97, 1004.16, 1098.87, 1112.36, 1532.67, 1771.0, 1984.96, 2097.35, 2246.81, 2765.34, 3295.02];
+var NORMS=[{"name": "红利类", "data": [0.2, -0.03, -0.43, -0.92, -1.82, -2.13, -2.3, -2.94, -4.36, -5.62, -5.99, -6.71, -6.67, -6.61, -6.46, -6.42, -6.42, -6.93, -7.12, -7.34, -7.24, -7.57, -7.57, -7.44, -7.24, -7.52, -7.69, -8.75, -9.01, -9.63, -10.12, -9.89, -10.19, -10.21, -10.29, -9.91, -9.74, -9.57, -9.47, -9.57, -9.68, -9.71, -9.86, -10.01, -9.87, -9.97, -10.01, -10.04, -10.02, -10.12, -10.41, -10.46, -10.52, -10.48, -10.16, -10.15, -9.77, -9.76, -9.73, -9.26], "c": "#c0392b", "bold": true}, {"name": "沪深300", "data": [1.22, 2.04, 3.53, 5.1, 6.58, 6.63, 8.27, 6.93, 5.34, 4.92, 3.46, 2.79, 2.51, 0.91, -0.3, -0.66, -1.85, -3.06, -0.07, -0.11, -1.03, -0.18, 0.47, 0.13, -0.64, -1.25, -0.7, -2.12, -2.28, -1.95, -1.27, -0.42, -0.98, -1.57, -1.6, -1.28, -1.09, -0.86, -0.49, -0.69, -0.77, -0.58, 0.55, 2.28, 2.04, 2.67, 2.81, 3.36, 3.28, 3.95, 4.15, 4.93, 4.55, 13.58, 19.13, 20.45, 23.08, 24.94, 34.12, 43.51], "c": "#2b6cb0", "bold": false}, {"name": "科创50", "data": [-0.52, 1.19, 4.52, 8.94, 14.47, 10.2, 13.95, 12.4, 8.92, 8.04, 6.2, 6.67, 6.42, 5.46, 4.75, 5.64, 2.66, 2.9, 7.31, 8.0, 8.06, 10.08, 11.23, 10.05, 8.27, 8.67, 9.02, 10.06, 10.64, 11.95, 14.79, 13.76, 14.44, 15.28, 16.13, 18.61, 19.52, 17.9, 16.93, 17.15, 16.04, 16.32, 14.97, 14.82, 16.05, 18.51, 19.08, 21.74, 25.12, 28.43, 28.96, 29.97, 31.22, 35.75, 36.74, 38.62, 40.42, 41.25, 45.96, 48.98], "c": "#e08b00", "bold": false}, {"name": "中证A500", "data": [1.21, 2.25, 3.36, 4.7, 8.45, 9.64, 11.36, 11.08, 11.33, 11.62, 10.93, 11.0, 11.56, 11.09, 10.48, 9.99, 9.14, 7.45, 9.65, 9.55, 7.86, 8.71, 8.73, 9.06, 9.26, 8.87, 8.94, 8.37, 7.72, 7.81, 8.78, 7.91, 7.1, 7.05, 7.24, 7.22, 7.39, 7.34, 7.18, 6.79, 6.52, 5.74, 5.72, 6.02, 5.56, 6.32, 6.2, 6.51, 6.43, 7.02, 7.49, 7.38, 7.96, 8.15, 7.96, 8.55, 8.13, 8.52, 8.49, 9.54], "c": "#2f8f83", "bold": false}, {"name": "纳指100", "data": [0.06, 0.12, 0.18, 0.24, 0.3, 0.36, 0.43, 0.49, 0.55, 0.62, 0.68, 0.75, 0.81, 0.88, 0.94, 1.01, 1.07, 1.14, 1.18, 1.23, 1.27, 1.32, 1.36, 1.41, 1.45, 1.5, 1.54, 1.59, 1.65, 1.72, 1.81, 1.81, 2.05, 2.26, 2.47, 2.68, 2.82, 2.96, 3.09, 3.23, 3.38, 3.64, 3.96, 4.15, 4.33, 4.45, 4.55, 4.96, 5.17, 5.29, 5.43, 5.69, 5.88, 6.08, 6.49, 6.79, 6.93, 7.04, 7.11, 7.17], "c": "#6b8e23", "bold": false}, {"name": "恒生科技", "data": [-0.03, -0.35, -0.64, -1.04, -1.4, -1.66, -1.73, -1.88, -2.12, -2.17, -2.16, -2.37, -2.55, -2.62, -2.66, -2.64, -2.71, -2.64, -2.66, -2.83, -2.89, -2.75, -2.7, -2.81, -2.83, -2.84, -2.8, -2.78, -2.5, -2.39, -2.4, -2.35, -2.21, -1.93, -0.87, -0.27, -0.32, -0.23, 0.04, 0.3, 0.29, 0.29, 0.32, 0.32, 0.33, 0.38, 0.41, 0.63, 1.48, 1.55, 1.54, 1.62, 1.6, 1.62, 1.64, 1.64, 1.65, 1.76, 2.95, 2.96], "c": "#6a5acd", "bold": false}, {"name": "创业板指", "data": [0.43, 1.97, 12.17, 17.07, 26.82, 18.87, 18.61, 13.42, 11.59, 10.49, 8.36, 9.5, 7.53, 6.87, 5.33, 4.27, 2.36, 2.69, 8.73, 7.35, 5.26, 8.04, 11.53, 10.53, 10.86, 10.63, 11.2, 12.09, 14.15, 15.79, 17.29, 13.49, 13.55, 13.43, 13.97, 15.23, 15.56, 18.19, 18.32, 16.73, 16.06, 14.94, 14.82, 15.15, 16.96, 21.46, 21.39, 20.94, 23.94, 27.13, 28.28, 32.02, 34.63, 42.83, 45.36, 47.89, 50.58, 57.51, 65.51, 74.27], "c": "#d94f70", "bold": false}, {"name": "中证500", "data": [0.1, 5.89, -0.76, 7.77, 4.94, 7.11, 8.86, 8.34, 6.45, 1.12, -1.18, -4.39, -5.21, -5.76, -7.45, -8.3, -7.87, -10.92, -7.43, -8.85, -9.21, -10.8, -7.05, -7.0, -4.11, -5.21, -4.43, -7.77, -9.71, -9.72, -7.76, -3.21, -3.71, -5.09, -4.39, -7.68, -6.98, -4.11, -1.05, -1.24, -0.62, -2.05, -0.47, 0.46, -3.92, -3.43, -2.14, -2.11, -2.38, -0.2, -0.75, -0.37, -2.27, -1.69, -0.51, 6.41, 3.61, 3.48, 7.33, 17.16], "c": "#8c8c8c", "bold": false}, {"name": "中证1000", "data": [-1.96, 7.75, 3.95, 27.76, 33.66, 37.3, 42.27, 48.29, 43.08, 23.42, 4.6, -7.16, -10.46, -18.38, -24.33, -26.38, -26.46, -33.23, -16.78, -26.38, -29.07, -29.84, -25.34, -27.96, -26.76, -28.03, -28.81, -33.5, -35.29, -34.3, -28.9, -25.69, -27.59, -30.13, -30.27, -33.28, -35.04, -35.3, -27.5, -27.97, -28.82, -30.81, -26.36, -25.36, -27.86, -21.28, -21.24, -19.15, -16.53, -10.42, -9.79, -7.69, -12.76, -10.15, -9.3, -0.31, -7.96, -7.96, -0.97, 10.29], "c": "#b17f4a", "bold": false}], NAMES=["红利类", "沪深300", "科创50", "中证A500", "纳指100", "恒生科技", "创业板指", "中证500", "中证1000"];
+var RNAME=["易方达中证红利ETF", "华泰柏瑞中证港股通高股息投资E", "易方达中证红利低波动ETF", "招商中证红利ETF", "华泰柏瑞上证红利ETF", "华夏中证红利低波动ETF", "国泰上证国有企业红利ETF", "融通中证诚通央企红利ETF", "平安中证A500红利低波动ET", "华泰柏瑞中证中央企业红利ETF", "摩根标普港股通低波红利ETF", "南方标普中国A股大盘红利低波5", "华安恒生港股通中国央企红利ET", "华宝标普中国A股红利机会ETF", "博时港股红利ETF", "景顺长城中证红利低波动100E", "易方达恒生港股通红利低波动ET", "博时中证红利低波100ETF", "工银瑞信中证港股通高股息精选E", "华泰柏瑞中证红利低波动ETF"], RVAL=[14.6, 11.31, 9.13, 8.6, 3.81, 3.12, 3.1, 2.56, 2.07, 1.7, -11.4, -8.59, -5.09, -4.77, -3.9, -3.65, -3.49, -2.87, -2.67, -2.57];
+var UP='#c0392b', DOWN='#1e8449', BENC='#31586f';
 
 var c1=echarts.init(document.getElementById('c1'));
 c1.setOption({
-  grid:{left:52,right:18,top:18,bottom:34},
+  grid:{left:58,right:58,top:36,bottom:34},
   tooltip:{trigger:'axis',valueFormatter:function(v){return (v>0?'+':'')+v.toFixed(1)+' 亿'}},
   xAxis:{type:'category',data:DATES,boundaryGap:false,
     axisLabel:{fontSize:10.5,color:'#8a99a8',formatter:function(v){return v.slice(5)}},
@@ -198,30 +262,49 @@ c1.setOption({
   yAxis:[
     {type:'value',name:'红利（亿）',position:'left',nameTextStyle:{fontSize:10.5,color:UP},
       axisLabel:{fontSize:10.5,color:UP},splitLine:{lineStyle:{color:'#f2f5f8'}}},
-    {type:'value',name:'宽基（亿）',position:'right',nameTextStyle:{fontSize:10.5,color:'#5b7c99'},
-      axisLabel:{fontSize:10.5,color:'#5b7c99'},splitLine:{show:false}}
+    {type:'value',name:'宽基（亿）',position:'right',nameTextStyle:{fontSize:10.5,color:BENC},
+      axisLabel:{fontSize:10.5,color:BENC},splitLine:{show:false}}
   ],
   series:[
     {name:'红利类',type:'line',yAxisIndex:0,data:DIV,smooth:true,symbol:'none',
-      lineStyle:{width:2.6,color:UP},
+      lineStyle:{width:2.8,color:UP},
       areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[
-        {offset:0,color:'rgba(192,57,43,.20)'},{offset:1,color:'rgba(192,57,43,0)'}])}},
-    {name:'宽基对照',type:'line',yAxisIndex:1,data:BEN,smooth:true,symbol:'none',
-      lineStyle:{width:2,color:'#5b7c99',type:'dashed'}}
+        {offset:0,color:'rgba(192,57,43,.18)'},{offset:1,color:'rgba(192,57,43,0)'}])}},
+    {name:'主流宽基',type:'line',yAxisIndex:1,data:BEN,smooth:true,symbol:'none',
+      lineStyle:{width:2.2,color:BENC,type:'dashed'}}
   ]
 });
 
 var c2=echarts.init(document.getElementById('c2'));
 c2.setOption({
+  grid:{left:68,right:22,top:56,bottom:34},
+  legend:{data:NAMES,itemWidth:14,itemHeight:8,textStyle:{fontSize:11.5,color:'#4a6572'},
+    icon:'roundRect',top:6},
+  tooltip:{trigger:'axis',valueFormatter:function(v){return (v>0?'+':'')+v.toFixed(2)+' %'}},
+  xAxis:{type:'category',data:DATES,boundaryGap:false,
+    axisLabel:{fontSize:10.5,color:'#8a99a8',formatter:function(v){return v.slice(5)}},
+    axisLine:{lineStyle:{color:'#e6eaef'}},axisTick:{show:false}},
+  yAxis:{type:'value',name:'净流入/期初规模 %',nameTextStyle:{fontSize:10.5,color:'#8a99a8'},
+    axisLabel:{fontSize:10.5,color:'#8a99a8'},splitLine:{lineStyle:{color:'#f2f5f8'}}},
+  series:NORMS.map(function(s){
+    return {name:s.name,type:'line',data:s.data,smooth:true,symbol:'none',
+      lineStyle:{width:s.bold?3:1.6,color:s.c,opacity:s.bold?1:.9},
+      z:s.bold?9:2,
+      endLabel:{show:false}};
+  })
+});
+
+var c3=echarts.init(document.getElementById('c3'));
+c3.setOption({
   grid:{left:150,right:78,top:14,bottom:30},
   tooltip:{trigger:'axis',axisPointer:{type:'shadow'},
     valueFormatter:function(v){return (v>0?'+':'')+v.toFixed(2)+' 亿'}},
   xAxis:{type:'value',axisLabel:{fontSize:10.5,color:'#8a99a8'},
     splitLine:{lineStyle:{color:'#f2f5f8'}}},
-  yAxis:{type:'category',data:NAME,inverse:true,
+  yAxis:{type:'category',data:RNAME,inverse:true,
     axisLabel:{fontSize:11.5,color:'#4a6572'},axisLine:{show:false},axisTick:{show:false}},
   series:[{
-    type:'bar',data:VAL.map(function(v,i){return {value:v,
+    type:'bar',data:RVAL.map(function(v,i){return {value:v,
       itemStyle:{color:i===9?'#c8ced4':(v>0?'#c0392b':'#1e8449'),borderRadius:2}}}),
     barWidth:'68%',
     label:{show:true,position:'right',fontSize:10.5,color:'#6b7785',
@@ -230,6 +313,6 @@ c2.setOption({
       data:[{yAxis:9.5}],label:{show:false}}
   }]
 });
-window.addEventListener('resize',function(){c1.resize();c2.resize();});
+window.addEventListener('resize',function(){c1.resize();c2.resize();c3.resize();});
 </script>
 </body></html>
