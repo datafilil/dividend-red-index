@@ -56,13 +56,35 @@ CONS_CACHE   = os.path.join(CACHE_DIR, f"{INDICATOR_CODE}cons.json")  # 成分�
 # 效果: 无论官网几点更新, 报告实际生成时点都收敛到「首次探测到更新 + 30 分钟」, 与固定 CRON 起点解耦。
 # 本地调试需强制全量跑: 命令行加 --force, 或设环境变量 FORCE_RUN=1。
 def committed_data_date():
-    """已发布报告中的数据日期(YYYY-MM-DD); 读不到返回 None。"""
-    try:
-        s = open(REPORT_FILE, encoding="utf-8").read()
-        mm = re.search(r"数据日期：(\d{4}-\d{2}-\d{2})", s)
-        return mm.group(1) if mm else None
-    except Exception:
-        return None
+    """已发布报告中的数据日期(YYYY-MM-DD); 读不到返回 None。
+
+    重要: 不能只读 REPORT_FILE(dividend_index_report.html)。
+    CI 每次 checkout 都会把工作区还原成 git 里的内容, 而 workflow 只提交 index.html,
+    从不提交 dividend_index_report.html → CI 里读到的是仓库里那份很久以前的旧报告
+    (实测停在 2026-09-29, 且不含"数据日期"标记), 于是 old_dd 恒为 None:
+        REPORT_UPDATED = (old_dd is None) or ...  → 恒为 True
+        「今日锁」要求 done_today.data_date == PREV_DATA_DATE(None) → 恒不命中
+    后果就是同一份数据整晚反复生成、反复提交(实测一天 16 次)。
+
+    正确做法: 在所有"已发布件"里取最新的数据日期。已发布件包括
+    根目录 index.html(由 workflow 用报告覆盖后提交) 与 site/index.html。
+    用 max() 而不是按优先级短路, 可避免被其中某个陈旧文件拖住。
+    """
+    cands = [
+        os.path.join(HERE, "index.html"),          # GitHub Pages 发布件(workflow 会更新)
+        os.path.join(SITE_DIR, "index.html"),      # 发布目录镜像
+        REPORT_FILE,                               # 本地工作产物(CI 里可能是旧文件)
+    ]
+    found = []
+    for p in cands:
+        try:
+            with open(p, encoding="utf-8") as f:
+                s = f.read()
+        except Exception:
+            continue
+        for mm in re.finditer(r"数据日期：(\d{4}-\d{2}-\d{2})", s):
+            found.append(mm.group(1))
+    return max(found) if found else None
 
 def latest_trade_date_light(days=45):
     """轻量预检: 只拉主标的最近 days 天行情, 返回官网最新交易日(YYYY-MM-DD); 异常返回 None(不阻断主流程)。"""
