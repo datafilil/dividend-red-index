@@ -96,24 +96,44 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # 报告：仅数据前进时回写 index.html
+
+          # ---------- 幂等硬守卫（提交前最后一道闸）----------
+          # 脚本输出的 report_updated 依赖「已发布日期」的读取。一旦它读不到（例如被某个陈旧
+          # 文件带偏），report_updated 就恒为 true，导致同一份数据整晚反复提交、反复触发 Pages
+          # 重建；更糟的是真出错那天会被一堆相同 commit 淹没，看不出问题。
+          # 这里以 git HEAD 里的 index.html 为唯一基准再拦一次：数据日期不严格前进就不发布。
+          PUB="false"
           if [ "${{ steps.run.outputs.report_updated }}" = "true" ]; then
-            cp dividend_index_report.html index.html
-            git add index.html
+            NEW_DD=$(grep -oP "数据日期：\K[0-9-]+" dividend_index_report.html 2>/dev/null | head -1 || true)
+            OLD_DD=$(git show HEAD:index.html 2>/dev/null | grep -oP "数据日期：\K[0-9-]+" | head -1 || true)
+            if [ -z "$OLD_DD" ]; then
+              echo "[幂等守卫] HEAD:index.html 读不到数据日期 → 本轮不发布（保守）"
+            elif [ -z "$NEW_DD" ]; then
+              echo "[幂等守卫] 新报告里读不到数据日期 → 本轮不发布"
+            elif [ "$NEW_DD" = "$OLD_DD" ]; then
+              echo "[幂等守卫] 数据日期未前进（新=$NEW_DD = 旧=$OLD_DD）→ 不覆盖 index.html、不提交"
+            elif [[ "$NEW_DD" < "$OLD_DD" ]]; then
+              echo "[幂等守卫] 新报告数据日期 $NEW_DD 早于已发布 $OLD_DD → 拒绝回退"
+            else
+              PUB="true"
+              cp dividend_index_report.html index.html
+              git add index.html
+              echo "[发布] 数据日期 $OLD_DD → $NEW_DD，已回写 index.html"
+            fi
           fi
           # 扫描缓存种子：始终尝试回写（7 天守卫保证不会每日重扫）。
           # 收敛锚点 anchor.json：记录“首次探测到官网更新的时点”，供脚本跨 CI 任务收敛到 +30min。
           # 注意：.gitignore 含 cache/，已追踪文件也需 -f 才能 add（否则被 ignore 拒绝并报错）。
           #       anchor.json 仅在“首次探测到更新”的轮询中才生成，故用 [ -f ] 守卫避免文件缺失时报错。
-          git add -f cache/add_candidates.json
-          [ -f cache/anchor.json ] && git add -f cache/anchor.json
+          if [ -f cache/add_candidates.json ]; then git add -f cache/add_candidates.json; fi
+          if [ -f cache/anchor.json ]; then git add -f cache/anchor.json; fi
           # 今日锁状态: 出报那轮写入, 供后续 cron 命中后早退(跨日自动解锁)
-          [ -f cache/done_today.json ] && git add -f cache/done_today.json
+          if [ -f cache/done_today.json ]; then git add -f cache/done_today.json; fi
           if git diff --cached --quiet; then
             echo "无变化，跳过提交"
           else
-            if [ "${{ steps.run.outputs.report_updated }}" = "true" ]; then
-              GEN=$(grep -oP "生成日期：\K[0-9-]+" dividend_index_report.html | head -1)
+            if [ "$PUB" = "true" ]; then
+              GEN=$(grep -oP "生成日期：\K[0-9-]+" dividend_index_report.html | head -1 || true)
               MSG="chore: 自动更新日报 ${GEN}"
             else
               MSG="chore: 刷新扫描缓存种子 $(TZ=Asia/Shanghai date +%F)"
