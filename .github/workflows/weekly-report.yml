@@ -141,3 +141,23 @@ jobs:
             git commit -m "$MSG"
             git push https://x-access-token:${GITHUB_TOKEN}@github.com/datafilil/dividend-red-index.git HEAD:main
           fi
+
+      # ---------- 数据源滞后哨兵 ----------
+      # 为什么需要：2026-11-12、11-13 是正常交易日（腾讯行情有这两天 K 线），但中证官网的
+      # perf 接口与估值指标 .xls 双双停在 11-11。脚本预检按设计「官网未前进 → 本轮跳过」并
+      # exit 0，于是两天 69 次运行全部 success、全部绿色、零提交，Pages 静默停在旧日期。
+      # 早退本身是对的（省掉空跑重活），错的是它和「一切正常」在日志里长得一样。
+      # 本步独立比对「官网最新交易日」与「真实交易日」，把静默滞后变成可见信号。
+      #
+      # 退出码约定：自身异常一律 exit 0（哨兵不该因为自己坏了把流水线染红）；
+      # 只有「滞后 >= 2 个交易日 且 处于当日收尾窗口（北京 23:45 后）」才 exit 1。
+      # 想彻底关掉判红、只留告警：在该步 env 里设 STALE_FAIL: '0'。
+      # 放在最后一步：即使它失败，前面的出报与提交都已完成，不影响发布。
+      - name: 数据源滞后哨兵
+        if: always()
+        run: |
+          if [ ! -f scripts/check_staleness.py ]; then
+            echo "哨兵脚本缺失（checkout 未成功？），跳过"
+            exit 0
+          fi
+          python scripts/check_staleness.py
